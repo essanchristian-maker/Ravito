@@ -37,6 +37,10 @@ android {
                 storePassword = signingValue("storePassword", "RAVITO_KEYSTORE_PASSWORD")
                 keyAlias = signingValue("keyAlias", "RAVITO_KEY_ALIAS")
                 keyPassword = signingValue("keyPassword", "RAVITO_KEY_PASSWORD")
+                // v1 en plus : certains installateurs de Tecno / Infinix / itel l'exigent.
+                enableV1Signing = true
+                enableV2Signing = true
+                enableV3Signing = true
             }
         }
     }
