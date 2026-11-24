@@ -23,7 +23,7 @@ android {
 
     defaultConfig {
         applicationId = "com.ravito.app"
-        minSdk = 26
+        minSdk = 23
         targetSdk = 35
         versionCode = (System.getenv("RAVITO_VERSION_CODE") ?: "1").toInt()
         versionName = "1.0.${System.getenv("RAVITO_VERSION_CODE") ?: "0"}"
@@ -59,6 +59,7 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        isCoreLibraryDesugaringEnabled = true
     }
     kotlinOptions {
         jvmTarget = "17"
@@ -104,5 +105,6 @@ dependencies {
     implementation(libs.androidx.biometric)
     debugImplementation(libs.androidx.compose.ui.tooling)
 
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.3")
     testImplementation(libs.junit)
 }

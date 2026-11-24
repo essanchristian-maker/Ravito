@@ -77,7 +77,7 @@ keyPassword=...
 
 ## Installer sur le téléphone
 
-1. Copier l'APK sur le téléphone (WhatsApp, câble ou Drive), puis l'ouvrir et autoriser « Installer des applications inconnues ».
+1. Android 6.0 minimum. Copier l'APK sur le téléphone (WhatsApp, câble ou Drive), puis l'ouvrir et autoriser « Installer des applications inconnues ».
 2. Au premier lancement, suivre l'écran de démarrage.
 3. **Android 13 et plus :** si les autorisations SMS ou notifications sont grisées (« paramètre restreint »), ouvrir Paramètres → Applications → Ravito → menu ⋮ → **Autoriser les paramètres restreints**, puis revenir dans Ravito.
 4. Tecno, Infinix, itel et Xiaomi : retirer Ravito de l'économie de batterie et activer le démarrage automatique. Les deux sont accessibles depuis Paramètres → Fonctionnement en arrière-plan.

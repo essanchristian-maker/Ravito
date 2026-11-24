@@ -19,6 +19,7 @@ object Notifications {
     private const val ID_REMINDER = 1001
 
     fun createChannels(context: Context) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val nm = context.getSystemService(NotificationManager::class.java) ?: return
         nm.createNotificationChannel(
             NotificationChannel(CHANNEL_REMINDER, "Rappel du rapport", NotificationManager.IMPORTANCE_HIGH).apply {
