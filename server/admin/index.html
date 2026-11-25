@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Ravito · Portail</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --green: #0B8A5A; --green-soft: #E3F5EC; --ink: #101418; --ink-soft: #6E7781;
+    --canvas: #F2F3F6; --line: #E6E8EC; --white: #fff; --amber: #B7791F; --amber-soft: #FFF3DC;
+    --red: #D93025; --red-soft: #FDECEA; --blue: #1F6FEB; --blue-soft: #E7F0FD;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: Inter, system-ui, sans-serif; background: var(--canvas); color: var(--ink); font-size: 15px; }
+  button, input, select, textarea { font: inherit; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 24px 20px 60px; }
+  header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+  header h1 { font-size: 30px; letter-spacing: -0.8px; margin: 0; flex: 1; }
+  .tabs { display: flex; gap: 6px; background: var(--white); padding: 4px; border-radius: 999px; }
+  .tab { border: 0; background: none; padding: 8px 16px; border-radius: 999px; cursor: pointer; color: var(--ink-soft); font-weight: 500; }
+  .tab.on { background: var(--green); color: #fff; }
+  .btn { border: 0; border-radius: 999px; padding: 10px 18px; font-weight: 600; cursor: pointer; background: var(--green); color: #fff; }
+  .btn.ghost { background: var(--white); color: var(--ink); }
+  .btn.soft { background: var(--green-soft); color: var(--green); }
+  .btn.danger { background: var(--red-soft); color: var(--red); }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .card { background: var(--white); border-radius: 20px; padding: 18px 20px; }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .kpi .l { color: var(--ink-soft); font-size: 13px; }
+  .kpi .v { font-size: 26px; font-weight: 700; letter-spacing: -0.6px; margin-top: 4px; }
+  .toolbar { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+  .search { flex: 1; min-width: 200px; border: 0; background: var(--white); border-radius: 999px; padding: 11px 18px; outline: none; }
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; font-size: 12px; text-transform: uppercase; color: var(--ink-soft); font-weight: 500; padding: 10px 12px; }
+  td { padding: 13px 12px; border-top: 1px solid var(--line); vertical-align: middle; }
+  tr.row { cursor: pointer; } tr.row:hover td { background: #FAFBFC; }
+  .muted { color: var(--ink-soft); font-size: 13px; }
+  .pill { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+  .s-paye { background: var(--green-soft); color: var(--green); }
+  .s-essai { background: var(--blue-soft); color: var(--blue); }
+  .s-expire { background: var(--amber-soft); color: var(--amber); }
+  .s-bloque { background: var(--red-soft); color: var(--red); }
+  .s-invite { background: var(--line); color: var(--ink-soft); }
+  .mono { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px; }
+  .drawer-bg { position: fixed; inset: 0; background: rgba(16,20,24,.35); display: none; }
+  .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(560px, 100%); background: var(--canvas); overflow-y: auto; padding: 22px; display: none; box-shadow: -10px 0 40px rgba(0,0,0,.1); }
+  .open .drawer-bg, .open .drawer { display: block; }
+  .drawer h2 { margin: 0 0 4px; font-size: 24px; letter-spacing: -0.5px; }
+  .sec { font-size: 12px; text-transform: uppercase; color: var(--ink-soft); margin: 22px 4px 8px; }
+  .kv { display: flex; justify-content: space-between; padding: 9px 0; border-top: 1px solid var(--line); gap: 12px; }
+  .kv:first-child { border-top: 0; }
+  .kv span:first-child { color: var(--ink-soft); }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .bars { display: flex; align-items: flex-end; gap: 4px; height: 90px; }
+  .bar { flex: 1; background: var(--green-soft); border-radius: 6px 6px 2px 2px; position: relative; min-height: 2px; }
+  .bar > i { position: absolute; left: 0; right: 0; bottom: 0; background: var(--green); border-radius: 6px 6px 2px 2px; }
+  .list-item { padding: 10px 0; border-top: 1px solid var(--line); }
+  .list-item:first-child { border-top: 0; }
+  .toggle { display: flex; align-items: center; justify-content: space-between; padding: 9px 0; border-top: 1px solid var(--line); }
+  .toggle:first-child { border-top: 0; }
+  label.field { display: block; margin-bottom: 12px; }
+  label.field span { display: block; font-size: 13px; color: var(--ink-soft); margin-bottom: 6px; }
+  .input { width: 100%; border: 1px solid var(--line); background: var(--white); border-radius: 12px; padding: 11px 14px; outline: none; }
+  .input:focus { border-color: var(--green); }
+  .modal-bg { position: fixed; inset: 0; background: rgba(16,20,24,.35); display: none; align-items: center; justify-content: center; padding: 16px; }
+  .modal-bg.on { display: flex; }
+  .modal { background: var(--canvas); border-radius: 24px; padding: 22px; width: min(460px, 100%); }
+  .login { max-width: 380px; margin: 12vh auto; }
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 11px 18px; border-radius: 999px; display: none; }
+  .empty { text-align: center; padding: 40px; color: var(--ink-soft); }
+  @media (max-width: 760px) { .hide-sm { display: none; } }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="toast" id="toast"></div>
+<script>
+const $ = (s, r = document) => r.querySelector(s);
+const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fmtDate = (ms) => ms ? new Date(ms).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';
+const fmtDateTime = (ms) => ms ? new Date(ms).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
+const money = (n) => (Number(n) || 0).toLocaleString('fr-FR').replace(/ /g, ' ') + ' F';
+const ago = (ms) => {
+  if (!ms) return 'jamais';
+  const m = Math.round((Date.now() - ms) / 60000);
+  if (m < 2) return "à l'instant";
+  if (m < 60) return `il y a ${m} min`;
+  const h = Math.round(m / 60);
+  if (h < 24) return `il y a ${h} h`;
+  return `il y a ${Math.round(h / 24)} j`;
+};
+const STATUS = { paye: 'Payé', essai: 'Essai', expire: 'Expiré', bloque: 'Bloqué', invite: 'Pas encore activé' };
+const FLAGS = [
+  ['test_sms', 'Tester un SMS'],
+  ['manual_add', 'Ajout manuel d\'un envoi'],
+  ['export', 'Export Excel / CSV'],
+  ['edit_report', 'Modifier le texte du rapport'],
+];
+const state = { tab: 'clients', clients: [], config: null, q: '', detail: null };
+
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.style.display = 'block'; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = 'none', 2600); }
+
+async function api(action, data, extra = '') {
+  const pw = sessionStorage.getItem('ravito_pw');
+  const r = await fetch(`/api/admin?action=${action}${extra}`, {
+    method: data ? 'POST' : 'GET',
+    headers: { Authorization: `Bearer ${pw}`, 'Content-Type': 'application/json' },
+    body: data ? JSON.stringify(data) : undefined,
+  });
+  if (r.status === 401) { sessionStorage.removeItem('ravito_pw'); renderLogin('Mot de passe incorrect.'); throw new Error('401'); }
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || 'erreur');
+  return j;
+}
+
+function renderLogin(err = '') {
+  $('#app').innerHTML = `
+    <div class="wrap"><div class="login card">
+      <h1 style="margin:0 0 6px;font-size:28px;letter-spacing:-.6px">Ravito</h1>
+      <p class="muted" style="margin:0 0 18px">Portail de pilotage</p>
+      <label class="field"><span>Mot de passe</span><input class="input" id="pw" type="password" autofocus></label>
+      ${err ? `<p style="color:var(--red);margin:0 0 12px">${esc(err)}</p>` : ''}
+      <button class="btn" id="go" style="width:100%">Se connecter</button>
+    </div></div>`;
+  const go = async () => { sessionStorage.setItem('ravito_pw', $('#pw').value); await load(); };
+  $('#go').onclick = go; $('#pw').onkeydown = (e) => e.key === 'Enter' && go();
+}
+
+async function load() {
+  try {
+    const j = await api('list');
+    state.clients = j.clients; state.config = j.config;
+    render();
+  } catch (e) { if (e.message !== '401') toast('Erreur : ' + e.message); }
+}
+
+function render() {
+  const c = state.clients;
+  const count = (s) => c.filter((x) => x.status === s).length;
+  const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
+  const revenue = c.flatMap((x) => x.payments).filter((p) => p.at >= monthStart.getTime()).reduce((t, p) => t + (p.amount || 0), 0);
+  const q = state.q.trim().toLowerCase();
+  const rows = c.filter((x) => !q || [x.name, x.phone, x.code].some((v) => String(v || '').toLowerCase().includes(q)));
+
+  $('#app').innerHTML = `
+  <div class="wrap">
+    <header>
+      <h1>Ravito</h1>
+      <div class="tabs">
+        <button class="tab ${state.tab === 'clients' ? 'on' : ''}" data-tab="clients">Clients</button>
+        <button class="tab ${state.tab === 'settings' ? 'on' : ''}" data-tab="settings">Réglages</button>
+      </div>
+      <button class="btn ghost" id="logout">Déconnexion</button>
+    </header>
+    ${state.tab === 'clients' ? `
+    <div class="kpis">
+      <div class="card kpi"><div class="l">Clients</div><div class="v">${c.length}</div></div>
+      <div class="card kpi"><div class="l">En essai</div><div class="v">${count('essai')}</div></div>
+      <div class="card kpi"><div class="l">Payés</div><div class="v">${count('paye')}</div></div>
+      <div class="card kpi"><div class="l">Expirés</div><div class="v">${count('expire')}</div></div>
+      <div class="card kpi"><div class="l">Encaissé ce mois</div><div class="v">${money(revenue)}</div></div>
+    </div>
+    <div class="toolbar">
+      <input class="search" id="q" placeholder="Rechercher un nom, un numéro, un code" value="${esc(state.q)}">
+      <button class="btn" id="new">+ Nouveau client</button>
+      <button class="btn ghost" id="refresh">Actualiser</button>
+    </div>
+    <div class="card" style="padding:6px 8px">
+      ${rows.length ? `<table>
+        <thead><tr><th>Client</th><th>Code</th><th>Statut</th><th class="hide-sm">Fin</th><th class="hide-sm">Dernière activité</th><th class="hide-sm">Envois 7 j</th><th class="hide-sm">Version</th></tr></thead>
+        <tbody>${rows.map((x) => `
+          <tr class="row" data-code="${esc(x.code)}">
+            <td><b>${esc(x.name)}</b><div class="muted">${esc(x.phone)}</div></td>
+            <td class="mono">${esc(x.code)}</td>
+            <td><span class="pill s-${x.status}">${STATUS[x.status]}</span>${x.errorsCount ? ' <span class="pill s-bloque">⚠ ' + x.errorsCount + '</span>' : ''}</td>
+            <td class="hide-sm">${fmtDate(x.expiry)}</td>
+            <td class="hide-sm">${ago(x.lastSeen)}</td>
+            <td class="hide-sm">${x.sends7}</td>
+            <td class="hide-sm muted">${esc(x.versionName || '—')}</td>
+          </tr>`).join('')}</tbody></table>` : `<div class="empty">Aucun client. Créez le premier avec « Nouveau client ».</div>`}
+    </div>` : renderSettings()}
+  </div>
+  <div id="drawer"><div class="drawer-bg"></div><div class="drawer" id="drawer-body"></div></div>
+  <div class="modal-bg" id="modal"><div class="modal" id="modal-body"></div></div>`;
+
+  document.querySelectorAll('[data-tab]').forEach((b) => b.onclick = () => { state.tab = b.dataset.tab; render(); });
+  $('#logout').onclick = () => { sessionStorage.removeItem('ravito_pw'); renderLogin(); };
+  if (state.tab === 'clients') {
+    $('#q').oninput = (e) => { state.q = e.target.value; const pos = e.target.selectionStart; render(); const i = $('#q'); i.focus(); i.setSelectionRange(pos, pos); };
+    $('#new').onclick = openCreate;
+    $('#refresh').onclick = load;
+    document.querySelectorAll('tr.row').forEach((tr) => tr.onclick = () => openDetail(tr.dataset.code));
+  } else bindSettings();
+  $('.drawer-bg').onclick = closeDetail;
+}
+
+function renderSettings() {
+  const c = state.config || {};
+  return `<div class="card" style="max-width:560px">
+    <label class="field"><span>Prix mensuel (F CFA)</span><input class="input" id="c-price" type="number" value="${esc(c.priceFcfa)}"></label>
+    <label class="field"><span>Numéro Orange Money affiché aux clients</span><input class="input" id="c-om" value="${esc(c.omNumber)}"></label>
+    <label class="field"><span>Durée de l'essai gratuit (jours)</span><input class="input" id="c-trial" type="number" value="${esc(c.trialDays)}"></label>
+    <label class="field"><span>Jours de tolérance après expiration</span><input class="input" id="c-grace" type="number" value="${esc(c.graceDays)}"></label>
+    <label class="field"><span>Connexion Internet obligatoire au moins tous les (jours)</span><input class="input" id="c-check" type="number" value="${esc(c.checkDays)}"></label>
+    <label class="field"><span>Message affiché à tous les utilisateurs (laisser vide pour aucun)</span><textarea class="input" id="c-notice" rows="3">${esc(c.notice)}</textarea></label>
+    <button class="btn" id="c-save">Enregistrer</button>
+    <p class="muted" style="margin-top:14px">Les changements arrivent sur les téléphones à leur prochaine connexion.</p>
+  </div>`;
+}
+
+function bindSettings() {
+  $('#c-save').onclick = async () => {
+    try {
+      const j = await api('config', {
+        priceFcfa: $('#c-price').value, omNumber: $('#c-om').value, trialDays: $('#c-trial').value,
+        graceDays: $('#c-grace').value, checkDays: $('#c-check').value, notice: $('#c-notice').value,
+      });
+      state.config = j.config; toast('Réglages enregistrés');
+    } catch (e) { toast('Erreur : ' + e.message); }
+  };
+}
+
+function modal(html) { $('#modal-body').innerHTML = html; $('#modal').classList.add('on'); $('#modal').onclick = (e) => { if (e.target.id === 'modal') closeModal(); }; }
+function closeModal() { $('#modal').classList.remove('on'); }
+
+function inviteMessage(x) {
+  return `Bonjour ${x.name},\n\nVoici Ravito, votre rapport du soir automatique.\n\n1. Ouvrez ce lien dans Chrome et installez l'application :\nhttps://github.com/essanchristian-maker/Ravito/releases/latest/download/Ravito.apk\n\n2. Au démarrage, entrez votre code personnel : ${x.code}\n\nEssai gratuit de ${x.trialDays || state.config.trialDays} jours. Ce code ne fonctionne que sur un seul téléphone.\nPrévoyez au moins 1 Go de mémoire libre.`;
+}
+
+function waLink(phone, text) {
+  let p = String(phone || '').replace(/\D/g, '');
+  if (p.length === 10) p = '225' + p;
+  return `https://wa.me/${p}?text=${encodeURIComponent(text)}`;
+}
+
+function openCreate() {
+  modal(`<h2 style="margin:0 0 16px">Nouveau client</h2>
+    <label class="field"><span>Nom</span><input class="input" id="n-name" placeholder="ex. Koffi Yao"></label>
+    <label class="field"><span>Téléphone (WhatsApp)</span><input class="input" id="n-phone" placeholder="07 00 00 00 00"></label>
+    <label class="field"><span>Essai gratuit (jours)</span><input class="input" id="n-trial" type="number" value="${esc(state.config.trialDays)}"></label>
+    <label class="field"><span>Note (facultatif)</span><input class="input" id="n-note"></label>
+    <div class="actions"><button class="btn" id="n-ok">Créer le code</button><button class="btn ghost" id="n-cancel">Annuler</button></div>`);
+  $('#n-cancel').onclick = closeModal;
+  $('#n-ok').onclick = async () => {
+    $('#n-ok').disabled = true;
+    try {
+      const j = await api('create', { name: $('#n-name').value, phone: $('#n-phone').value, trialDays: $('#n-trial').value, note: $('#n-note').value });
+      const x = j.client; const msg = inviteMessage(x);
+      modal(`<h2 style="margin:0 0 8px">Code créé</h2>
+        <p class="muted" style="margin:0 0 12px">Envoyez ce message à ${esc(x.name)} :</p>
+        <div class="card mono" style="white-space:pre-wrap;font-size:13px">${esc(msg)}</div>
+        <div class="actions" style="margin-top:14px">
+          ${x.phone ? `<a class="btn" target="_blank" href="${esc(waLink(x.phone, msg))}" style="text-decoration:none">Envoyer sur WhatsApp</a>` : ''}
+          <button class="btn soft" id="m-copy">Copier</button><button class="btn ghost" id="m-close">Fermer</button>
+        </div>`);
+      $('#m-copy').onclick = () => { navigator.clipboard.writeText(msg); toast('Message copié'); };
+      $('#m-close').onclick = closeModal;
+      load();
+    } catch (e) { toast('Erreur : ' + e.message); $('#n-ok').disabled = false; }
+  };
+}
+
+function closeDetail() { $('#drawer').classList.remove('open'); state.detail = null; }
+
+async function openDetail(code) {
+  $('#drawer').classList.add('open');
+  $('#drawer-body').innerHTML = '<p class="muted">Chargement…</p>';
+  try {
+    state.detail = await api('detail', null, `&code=${encodeURIComponent(code)}`);
+    renderDetail();
+  } catch (e) { $('#drawer-body').innerHTML = `<p>Erreur : ${esc(e.message)}</p>`; }
+}
+
+function renderDetail() {
+  const d = state.detail; const x = d.client;
+  const days = [];
+  for (let i = 13; i >= 0; i--) { const t = new Date(Date.now() - i * 864e5); days.push(t.toISOString().slice(0, 10)); }
+  const vals = days.map((k) => d.stats[k]?.sends || 0); const max = Math.max(1, ...vals);
+  const totals = (key) => days.reduce((t, k) => t + (d.stats[k]?.[key] || 0), 0);
+
+  $('#drawer-body').innerHTML = `
+    <div style="display:flex;align-items:start;gap:10px">
+      <div style="flex:1"><h2>${esc(x.name)}</h2><div class="muted">${esc(x.phone)} · <span class="mono">${esc(x.code)}</span></div></div>
+      <button class="btn ghost" id="d-close">Fermer</button>
+    </div>
+    <div style="margin-top:12px"><span class="pill s-${x.status}">${STATUS[x.status]}</span></div>
+
+    <div class="sec">Abonnement</div>
+    <div class="card">
+      <div class="kv"><span>Activé le</span><span>${fmtDate(x.activatedAt)}</span></div>
+      <div class="kv"><span>Fin de l'essai</span><span>${x.trialEnd ? fmtDate(x.trialEnd) : (x.trialDays ? x.trialDays + ' jours après activation' : '—')}</span></div>
+      <div class="kv"><span>Payé jusqu'au</span><span>${fmtDate(x.paidUntil)}</span></div>
+      <div class="kv"><span>Paiements</span><span>${x.payments.length ? x.payments.map((p) => `${fmtDate(p.at)} : ${money(p.amount)}`).join('<br>') : '—'}</span></div>
+      <div class="actions" style="margin-top:14px">
+        <button class="btn" data-act="pay1">Payé : +1 mois (${money(state.config.priceFcfa)})</button>
+        <button class="btn soft" data-act="pay3">+3 mois</button>
+        <button class="btn soft" data-act="trial7">Prolonger l'essai de 7 jours</button>
+      </div>
+    </div>
+
+    <div class="sec">Utilisation (14 derniers jours)</div>
+    <div class="card">
+      <div class="bars">${vals.map((v, i) => `<div class="bar" title="${days[i]} : ${v} envois"><i style="height:${Math.round(v / max * 100)}%"></i></div>`).join('')}</div>
+      <div class="muted" style="margin-top:8px">Envois lus par jour</div>
+      <div class="kv" style="margin-top:10px"><span>Ouvertures de l'appli</span><span>${totals('opens')}</span></div>
+      <div class="kv"><span>Envois reconnus</span><span>${totals('sends')}</span></div>
+      <div class="kv"><span>UV reçues reconnues</span><span>${totals('receipts')}</span></div>
+      <div class="kv"><span>SMS non reconnus</span><span>${totals('unrecognized')}</span></div>
+      <div class="kv"><span>Rapports partagés / copiés</span><span>${totals('shares')} / ${totals('copies')}</span></div>
+      <div class="kv"><span>Dernière activité</span><span>${ago(x.lastSeen)}</span></div>
+      <div class="kv"><span>Version · téléphone</span><span>${esc(x.versionName || '—')} · ${esc(d.model || '—')} ${d.android ? '(Android ' + esc(d.android) + ')' : ''}</span></div>
+      <div class="kv"><span>Opérateurs</span><span>${esc(x.operators.join(', ') || '—')}</span></div>
+    </div>
+
+    <div class="sec">Fonctions activées</div>
+    <div class="card">${FLAGS.map(([k, label]) => `
+      <label class="toggle"><span>${label}</span><input type="checkbox" data-flag="${k}" ${x.flags[k] === false ? '' : 'checked'}></label>`).join('')}
+    </div>
+
+    <div class="sec">SMS non reconnus (chiffres masqués)</div>
+    <div class="card">${d.unrecognized.length ? d.unrecognized.map((u) => `<div class="list-item"><div class="muted">${fmtDateTime(u.ts)} · ${esc(u.op)}</div><div class="mono">${esc(u.text)}</div></div>`).join('') : '<div class="muted">Aucun.</div>'}</div>
+
+    <div class="sec">Erreurs de l'application</div>
+    <div class="card">${d.errors.length ? d.errors.map((e) => `<div class="list-item"><div class="muted">${fmtDateTime(e.ts)} · v${esc(e.v)}</div><div class="mono" style="white-space:pre-wrap">${esc(e.msg.slice(0, 600))}</div></div>`).join('') : '<div class="muted">Aucune.</div>'}</div>
+
+    <div class="sec">Fiche</div>
+    <div class="card">
+      <label class="field"><span>Nom</span><input class="input" id="e-name" value="${esc(x.name)}"></label>
+      <label class="field"><span>Téléphone</span><input class="input" id="e-phone" value="${esc(x.phone)}"></label>
+      <label class="field"><span>Note</span><textarea class="input" id="e-note" rows="2">${esc(x.note)}</textarea></label>
+      <div class="actions"><button class="btn soft" id="e-save">Enregistrer</button><button class="btn ghost" id="e-msg">Renvoyer le message d'invitation</button></div>
+    </div>
+
+    <div class="sec">Sécurité</div>
+    <div class="card actions">
+      <button class="btn danger" data-act="block">${x.blocked ? 'Débloquer' : 'Bloquer l\'accès'}</button>
+      <button class="btn ghost" data-act="transfer" ${x.hasDevice ? '' : 'disabled'}>Transférer vers un nouveau téléphone</button>
+    </div>`;
+
+  $('#d-close').onclick = closeDetail;
+  const refresh = async () => { await openDetail(x.code); load(); };
+  const act = async (action, data, msg) => {
+    try { await api(action, { code: x.code, ...data }); toast(msg); await refresh(); } catch (e) { toast('Erreur : ' + e.message); }
+  };
+  document.querySelectorAll('[data-act]').forEach((b) => b.onclick = () => {
+    const a = b.dataset.act;
+    if (a === 'pay1') return confirm(`Enregistrer un paiement de ${money(state.config.priceFcfa)} pour ${x.name} ?`) && act('pay', { months: 1 }, 'Abonnement prolongé d\'un mois');
+    if (a === 'pay3') return confirm(`Enregistrer 3 mois (${money(state.config.priceFcfa * 3)}) pour ${x.name} ?`) && act('pay', { months: 3 }, 'Abonnement prolongé de 3 mois');
+    if (a === 'trial7') return act('trial', { days: 7 }, 'Essai prolongé de 7 jours');
+    if (a === 'block') return confirm(x.blocked ? 'Débloquer ce client ?' : 'Bloquer l\'accès de ce client ?') && act('block', { blocked: !x.blocked }, x.blocked ? 'Client débloqué' : 'Client bloqué');
+    if (a === 'transfer') return confirm('Libérer ce code ? L\'ancien téléphone sera bloqué à sa prochaine connexion, et le code pourra être entré sur un nouveau téléphone.') && act('transfer', {}, 'Code libéré');
+  });
+  document.querySelectorAll('[data-flag]').forEach((cb) => cb.onchange = () => {
+    const flags = { ...x.flags }; flags[cb.dataset.flag] = cb.checked;
+    act('update', { flags }, 'Fonctions mises à jour');
+  });
+  $('#e-save').onclick = () => act('update', { name: $('#e-name').value, phone: $('#e-phone').value, note: $('#e-note').value }, 'Fiche enregistrée');
+  $('#e-msg').onclick = () => {
+    const msg = inviteMessage(x);
+    modal(`<h2 style="margin:0 0 8px">Message d'invitation</h2><div class="card mono" style="white-space:pre-wrap;font-size:13px">${esc(msg)}</div>
+      <div class="actions" style="margin-top:14px">${x.phone ? `<a class="btn" target="_blank" href="${esc(waLink(x.phone, msg))}" style="text-decoration:none">Envoyer sur WhatsApp</a>` : ''}
+      <button class="btn soft" id="m-copy">Copier</button><button class="btn ghost" id="m-close">Fermer</button></div>`);
+    $('#m-copy').onclick = () => { navigator.clipboard.writeText(msg); toast('Message copié'); };
+    $('#m-close').onclick = closeModal;
+  };
+}
+
+if (sessionStorage.getItem('ravito_pw')) load(); else renderLogin();
+</script>
+</body>
+</html>
