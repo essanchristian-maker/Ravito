@@ -60,9 +60,11 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ravito.app.RavitoApp
 import com.ravito.app.data.ReportDraftEntity
+import com.ravito.app.domain.Category
 import com.ravito.app.domain.Formats
 import com.ravito.app.domain.ReportGenerator
 import com.ravito.app.ui.components.DatePickDialog
+import com.ravito.app.ui.history.CategoryChooser
 import com.ravito.app.ui.components.InfoCard
 import com.ravito.app.ui.components.dayLabel
 import com.ravito.app.ui.components.rememberApp
@@ -88,6 +90,8 @@ class ReportViewModel(private val app: RavitoApp) : ViewModel() {
         val draft: String?,
         val summary: ReportGenerator.Summary,
         val pendingReview: Int,
+        /** Numéros des envois pas encore rangés (cabine / agent) -> nom connu. */
+        val toClassify: List<Pair<String, String?>>,
         val periodLabel: String,
         val fullDay: Boolean,
     ) {
@@ -104,12 +108,15 @@ class ReportViewModel(private val app: RavitoApp) : ViewModel() {
             ) { txs, draft, pending ->
                 val report = txs.map { it.toReportTx() }
                 val options = s.reportOptions()
+                val summary = ReportGenerator.summarize(report, options)
+                val names = report.associate { it.recipientNumber to it.recipientName }
                 State(
                     date = d,
                     generated = ReportGenerator.generate(d, report, options, zone),
                     draft = draft?.text,
-                    summary = ReportGenerator.summarize(report, options),
+                    summary = summary,
                     pendingReview = pending,
+                    toClassify = summary.unclassifiedNumbers.map { it to names[it] },
                     periodLabel = s.period.label(),
                     fullDay = s.period.isFullDay,
                 )
@@ -121,6 +128,8 @@ class ReportViewModel(private val app: RavitoApp) : ViewModel() {
     }
 
     fun discardDraft() = viewModelScope.launch { app.repository.drafts.delete(date.value.toString()) }
+
+    fun classify(phone: String, category: Category?) = viewModelScope.launch { app.repository.setCategory(phone, category) }
 }
 
 fun copyToClipboard(ctx: Context, text: String) {
@@ -212,14 +221,42 @@ fun ReportScreen(onOpenReview: () -> Unit) {
                 }
             }
 
+            if (s.toClassify.isNotEmpty()) {
+                InfoCard(Modifier.padding(vertical = 8.dp), warning = true) {
+                    Text(
+                        "${Formats.plural(s.toClassify.size, "numéro à classer", "numéros à classer")}",
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        "Indiquez une fois pour toutes si c'est une cabine ou un agent Mobile Money. " +
+                            "Les prochains envois vers ce numéro iront directement dans la bonne rubrique.",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    s.toClassify.forEach { (phone, name) ->
+                        Text(
+                            listOfNotNull(name?.takeIf { it.isNotBlank() }, Formats.prettyPhone(phone)).joinToString(" · "),
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.padding(top = 12.dp),
+                        )
+                        CategoryChooser(null) { c -> vm.classify(phone, c) }
+                    }
+                }
+            }
+
             Row(Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 Column {
-                    Text("Total", style = MaterialTheme.typography.labelMedium)
+                    Text("Total envoyé", style = MaterialTheme.typography.labelMedium)
                     Text(Formats.amount(s.summary.total), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 }
                 Column {
                     Text("Envois", style = MaterialTheme.typography.labelMedium)
                     Text("${s.summary.count}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                }
+                if (s.summary.received.count > 0) {
+                    Column {
+                        Text("UV reçues", style = MaterialTheme.typography.labelMedium)
+                        Text(Formats.amount(s.summary.received.total), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    }
                 }
                 if (s.summary.failed > 0) {
                     Column {

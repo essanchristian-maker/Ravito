@@ -50,7 +50,45 @@ class ReportGeneratorTest {
             "TOTAL : 3 envois - 120 000 F",
             "Solde Orange fin de journée : 275 000 F",
         ).joinToString("\n")
-        assertEquals(expected, ReportGenerator.generate(date, txs, ReportGenerator.Options(), zone))
+        assertEquals(
+            expected,
+            ReportGenerator.generate(date, txs, ReportGenerator.Options(template = ReportGenerator.OPERATORS_TEMPLATE), zone),
+        )
+    }
+
+    @Test
+    fun troisRubriques() {
+        val txs = listOf(
+            tx(7, 45, 30_000, "0501000001", "Cabine Koffi", op = Operator.MTN).copy(category = Category.CABINE),
+            tx(8, 33, 10_000, "0501000003", op = Operator.MTN).copy(category = Category.CABINE),
+            tx(9, 32, 100_000, "0501000002", op = Operator.MTN, balance = 1_110_000).copy(category = Category.AGENT),
+            tx(10, 0, 15_000, "0501000004", op = Operator.MTN),
+            tx(12, 10, 200_000, "0501000002", op = Operator.MTN).copy(kind = TxKind.RECEIVED, category = Category.AGENT),
+        )
+        val expected = listOf(
+            "RAPPORT DU 24/11/2026",
+            "",
+            "1. CABINES : 2 envois - 40 000 F",
+            "1. 07:45 - Cabine Koffi (0501000001) - 30 000 F",
+            "2. 08:33 - 0501000003 - 10 000 F",
+            "",
+            "2. AGENTS MOBILE MONEY : 1 envoi - 100 000 F",
+            "1. 09:32 - 0501000002 - 100 000 F",
+            "",
+            "3. UV REÇUES DES AGENTS : 1 réception - 200 000 F",
+            "1. 12:10 - 0501000002 - 200 000 F",
+            "",
+            "À CLASSER : 1 envoi - 15 000 F",
+            "1. 10:00 - 0501000004 - 15 000 F",
+            "",
+            "TOTAL ENVOYÉ : 4 envois - 155 000 F",
+            "Solde MTN fin de journée : 1 110 000 F",
+        ).joinToString("\n")
+        val options = ReportGenerator.Options(operators = listOf(Operator.MTN))
+        assertEquals(expected, ReportGenerator.generate(date, txs, options, zone))
+        val s = ReportGenerator.summarize(txs, options)
+        assertEquals(listOf("0501000004"), s.unclassifiedNumbers)
+        assertEquals(200_000L, s.received.total)
     }
 
     @Test

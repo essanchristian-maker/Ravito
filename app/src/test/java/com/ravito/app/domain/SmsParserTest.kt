@@ -104,14 +104,54 @@ class SmsParserTest {
     }
 
     @Test
-    fun argentRecuIgnore() {
-        val r = SmsParser.parse(
+    fun argentRecuEnregistreCommeUv() {
+        val t = tx(
             Operator.ORANGE,
             "Vous avez recu un transfert de 30000 FCFA du 0707080910. Nouveau solde: 355000 FCFA. Ref: CI2411.Y1",
         )
+        assertEquals(TxKind.RECEIVED, t.kind)
+        assertEquals(30_000L, t.amount)
+        assertEquals("0707080910", t.recipientNumber)
+        assertEquals(355_000L, t.balanceAfter)
+        val t2 = tx(Operator.WAVE, "Awa Koné vous a envoyé 2.000F")
+        assertEquals(TxKind.RECEIVED, t2.kind)
+        assertEquals(2_000L, t2.amount)
+    }
+
+    @Test
+    fun argentRecuQuiNestPasUnTransfertIgnore() {
+        val r = SmsParser.parse(Operator.ORANGE, "Vous avez recu un remboursement de 500 FCFA. Nouveau solde: 1000 FCFA.")
         assertEquals(SmsParser.Result.Ignored(SmsParser.IgnoreReason.RECEIVED), r)
-        val r2 = SmsParser.parse(Operator.WAVE, "Awa Koné vous a envoyé 2.000F")
-        assertEquals(SmsParser.Result.Ignored(SmsParser.IgnoreReason.RECEIVED), r2)
+    }
+
+    /** Format réel des SMS MTN CI (expéditeur « MobileMoney »), numéros et montants modifiés. */
+    @Test
+    fun mtnTransfertReel() {
+        val t = tx(
+            Operator.MTN,
+            "Vous avez transfere 30000 FCFA au 2250501000001 le 24-11-2026 07:45:34. Votre nouveau solde est de: 1450000 FCFA. ID Transaction: 10000000001.",
+        )
+        assertEquals(TxKind.TRANSFER, t.kind)
+        assertEquals(TxStatus.SUCCESS, t.status)
+        assertEquals(30_000L, t.amount)
+        assertEquals("0501000001", t.recipientNumber)
+        assertEquals(1_450_000L, t.balanceAfter)
+        assertEquals("10000000001", t.reference)
+        assertNull(t.fee)
+
+        val t2 = tx(
+            Operator.MTN,
+            "Vous avez transfere 100000 FCFA au 2250501000002 le 24-11-2026 09:32:55. Votre nouveau solde est de: 1110000 FCFA. ID Transaction: 10000000002.",
+        )
+        assertEquals(100_000L, t2.amount)
+        assertEquals("0501000002", t2.recipientNumber)
+        assertEquals(1_110_000L, t2.balanceAfter)
+    }
+
+    @Test
+    fun mtnExpediteur() {
+        val senders = mapOf(Operator.MTN to Operator.MTN.defaultSenders, Operator.ORANGE to Operator.ORANGE.defaultSenders)
+        assertEquals(Operator.MTN, Operator.matchSender("MobileMoney", senders))
     }
 
     @Test

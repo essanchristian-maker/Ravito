@@ -88,6 +88,26 @@ enum class TxKind(val label: String) {
     TRANSFER("Transfert"),
     DEPOSIT("Dépôt"),
     OTHER("Envoi"),
+
+    /** Argent reçu (UV renvoyées par un agent Mobile Money contre des espèces). */
+    RECEIVED("Reçu"),
+    ;
+
+    val isSend: Boolean get() = this != RECEIVED
+}
+
+/**
+ * Rubrique du rapport pour un numéro (gardée dans le carnet) :
+ * les cabines qu'on recharge et les agents Mobile Money (dépôts / retraits).
+ */
+enum class Category(val label: String, val reportLabel: String) {
+    CABINE("Cabine", "CABINES"),
+    AGENT("Agent Mobile Money", "AGENTS MOBILE MONEY"),
+    ;
+
+    companion object {
+        fun fromName(name: String?): Category? = entries.firstOrNull { it.name == name }
+    }
 }
 
 enum class TxSource(val label: String) {

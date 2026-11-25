@@ -9,7 +9,9 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverter
 import androidx.room.TypeConverters
+import androidx.room.AutoMigration
 import com.ravito.app.domain.Operator
+import com.ravito.app.domain.Category
 import com.ravito.app.domain.TxKind
 import com.ravito.app.domain.TxSource
 import com.ravito.app.domain.TxStatus
@@ -32,12 +34,15 @@ class Converters {
     @TypeConverter fun stringToSource(v: String): TxSource = TxSource.valueOf(v)
     @TypeConverter fun reviewToString(v: ReviewStatus): String = v.name
     @TypeConverter fun stringToReview(v: String): ReviewStatus = ReviewStatus.valueOf(v)
+    @TypeConverter fun categoryToString(v: Category?): String? = v?.name
+    @TypeConverter fun stringToCategory(v: String?): Category? = Category.fromName(v)
 }
 
 @Database(
     entities = [TransactionEntity::class, UnrecognizedEntity::class, MerchantEntity::class, ReportDraftEntity::class],
-    version = 1,
+    version = 2,
     exportSchema = true,
+    autoMigrations = [AutoMigration(from = 1, to = 2)],
 )
 @TypeConverters(Converters::class)
 abstract class RavitoDatabase : RoomDatabase() {

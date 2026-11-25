@@ -63,6 +63,7 @@ import com.ravito.app.data.TransactionView
 import com.ravito.app.domain.Formats
 import com.ravito.app.domain.Operator
 import com.ravito.app.domain.ReportGenerator
+import com.ravito.app.domain.TxKind
 import com.ravito.app.domain.TxStatus
 import com.ravito.app.ui.components.DatePickDialog
 import com.ravito.app.ui.components.OperatorBadge
@@ -277,7 +278,7 @@ fun HistoryScreen(
                 val groups = list.groupBy { Instant.ofEpochMilli(it.tx.timestamp).atZone(zone).toLocalDate() }
                 groups.forEach { (day, txs) ->
                     stickyHeader(key = "h$day") {
-                        val ok = txs.filter { it.tx.status == TxStatus.SUCCESS && !it.tx.excluded }
+                        val ok = txs.filter { it.tx.status == TxStatus.SUCCESS && !it.tx.excluded && it.tx.kind.isSend }
                         Row(
                             Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant)
                                 .padding(horizontal = 16.dp, vertical = 8.dp),
@@ -339,6 +340,7 @@ private fun TodaySummary(s: ReportGenerator.Summary?, operators: List<Operator>)
 fun TransactionRow(v: TransactionView, zone: ZoneId, onClick: () -> Unit) {
     val tx = v.tx
     val dimmed = tx.excluded || tx.status == TxStatus.FAILED
+    val received = tx.kind == TxKind.RECEIVED
     Row(
         Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -347,13 +349,14 @@ fun TransactionRow(v: TransactionView, zone: ZoneId, onClick: () -> Unit) {
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(
-                v.displayName ?: Formats.prettyPhone(tx.recipientNumber).ifEmpty { "Bénéficiaire inconnu" },
+                v.displayName ?: Formats.prettyPhone(tx.recipientNumber).ifEmpty { if (received) "Expéditeur inconnu" else "Bénéficiaire inconnu" },
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             val sub = buildList {
                 add(Instant.ofEpochMilli(tx.timestamp).atZone(zone).format(timeFmt))
+                if (received) add("UV reçues") else v.category?.let { add(it.label) }
                 if (v.displayName != null && tx.recipientNumber != null) add(Formats.prettyPhone(tx.recipientNumber))
                 tx.simSlot?.let { add("SIM $it") }
                 if (tx.status == TxStatus.FAILED) add("Échoué")
@@ -366,10 +369,14 @@ fun TransactionRow(v: TransactionView, zone: ZoneId, onClick: () -> Unit) {
             )
         }
         Text(
-            Formats.amount(tx.amount),
+            (if (received) "+ " else "") + Formats.amount(tx.amount),
             fontWeight = FontWeight.Bold,
             textDecoration = if (dimmed) TextDecoration.LineThrough else null,
-            color = if (dimmed) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+            color = when {
+                dimmed -> MaterialTheme.colorScheme.onSurfaceVariant
+                received -> MaterialTheme.colorScheme.primary
+                else -> MaterialTheme.colorScheme.onSurface
+            },
         )
     }
 }

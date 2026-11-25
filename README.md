@@ -94,17 +94,29 @@ Un SMS d'opérateur au format inconnu n'est jamais perdu. Il est rangé dans « 
 
 ## Modèle de rapport
 
-Le modèle se modifie dans Paramètres → Modèle de rapport. Les zones disponibles sont :
-`{date}`, `{jour}`, `{periode}`, `{operateurs}`, `{liste}`, `{total}`, `{nb}`, `{nb_envois}`, `{frais}`, `{soldes}`, `{nb_echecs}`.
-Il existe aussi des zones par opérateur : `{orange_liste}`, `{orange_total}`, `{orange_nb}`, `{orange_solde}` (de même avec `mtn`, `moov` et `wave`).
+Le rapport par défaut a 3 rubriques :
+1. **Cabines** : envois aux cabines rechargées ;
+2. **Agents Mobile Money** : envois aux agents qui font dépôts et retraits ;
+3. **UV reçues des agents** : argent reçu des agents contre des espèces (SMS « Vous avez reçu… »).
+
+Chaque numéro est rangé une seule fois (cabine ou agent) depuis l'écran Rapport, le détail d'un envoi ou le carnet. Les envois vers un numéro pas encore rangé apparaissent dans « À CLASSER ».
+
+Le modèle se modifie dans Paramètres → Modèle de rapport. Zones disponibles :
+`{cabines}`, `{agents}`, `{uv_recues}`, `{a_classer}`, `{total_cabines}`, `{nb_cabines}`, `{total_agents}`, `{nb_agents}`, `{total_uv}`, `{nb_uv}`,
+`{date}`, `{jour}`, `{periode}`, `{operateurs}`, `{liste}`, `{total}`, `{nb}`, `{nb_envois}`, `{frais}`, `{soldes}`, `{nb_echecs}`,
+et par opérateur `{orange_liste}`, `{orange_total}`, `{orange_nb}`, `{orange_solde}` (de même avec `mtn`, `moov`, `wave`).
 
 Modèle par défaut :
 
 ```
 RAPPORT DU {date}
 
-{operateurs}
+1. {cabines}
 
-TOTAL : {nb_envois} - {total}
+2. {agents}
+
+3. {uv_recues}
+{a_classer}
+TOTAL ENVOYÉ : {nb_envois} - {total}
 {soldes}
 ```

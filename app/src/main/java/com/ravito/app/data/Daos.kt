@@ -72,6 +72,9 @@ interface MerchantDao {
     @Query("SELECT * FROM merchants")
     suspend fun getAll(): List<MerchantEntity>
 
+    @Query("SELECT * FROM merchants WHERE phone = :phone")
+    suspend fun get(phone: String): MerchantEntity?
+
     @Upsert
     suspend fun upsert(m: MerchantEntity)
 

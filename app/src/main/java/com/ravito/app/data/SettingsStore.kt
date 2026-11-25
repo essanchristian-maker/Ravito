@@ -66,7 +66,9 @@ class SettingsStore(context: Context) {
                 prefs.getString("senders_${op.name}", "").orEmpty()
                     .split(',').map { it.trim() }.filter { it.isNotEmpty() }
             },
-            template = prefs.getString("template", null) ?: d.template,
+            // L'ancien modèle par défaut (par opérateur) passe au modèle en 3 rubriques.
+            template = prefs.getString("template", null)
+                ?.takeIf { it != ReportGenerator.LEGACY_TEMPLATE } ?: d.template,
             period = ReportPeriod(prefs.getInt("period_start", 0), prefs.getInt("period_end", 23 * 60 + 59)),
             includeFees = prefs.getBoolean("include_fees", d.includeFees),
             showBalances = prefs.getBoolean("show_balances", d.showBalances),

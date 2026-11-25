@@ -20,6 +20,7 @@ object SmsParser {
         val amount: Long,
         val fee: Long?,
         val balanceAfter: Long?,
+        /** Numéro de l'autre personne : bénéficiaire d'un envoi, expéditeur d'une réception. */
         val recipientNumber: String?,
         val recipientName: String?,
         val reference: String?,
@@ -28,7 +29,7 @@ object SmsParser {
     enum class IgnoreReason { RECEIVED, CODE, PROMO, NO_AMOUNT, INFO }
 
     sealed interface Result {
-        /** Envoi reconnu (réussi ou échoué). */
+        /** Envoi reconnu (réussi ou échoué) ou argent reçu ([TxKind.RECEIVED]). */
         data class Transaction(val tx: Parsed) : Result
 
         /** Message hors sujet : jamais enregistré. */
@@ -43,8 +44,11 @@ object SmsParser {
 
     // ---------- Classement ----------
 
-    /** Argent reçu : toujours ignoré. Testé AVANT les envois (« Vous avez reçu un transfert de … »). */
-    private val received = rx(
+    /**
+     * Argent reçu d'une personne (UV renvoyées par un agent) : enregistré comme réception.
+     * Testé AVANT les envois (« Vous avez reçu un transfert de … »).
+     */
+    private val receivedTransfer = rx(
         "\\bvous avez recu\\b",
         "\\bavez bien recu\\b",
         "\\brecu (un|une|de|du)\\b",
@@ -58,8 +62,15 @@ object SmsParser {
         "\\byou have received\\b",
         "\\bhas sent you\\b",
         "\\breceived\\b.*\\bfrom\\b",
+    )
+
+    /** Entrées d'argent qui ne viennent pas d'une personne : ignorées. */
+    private val receivedOther = rx(
         "\\bpaiement recu\\b",
         "\\bremboursement\\b",
+        "\\bbonus\\b",
+        "\\bcashback\\b",
+        "\\bremise\\b",
     )
 
     /** Envoi d'argent fait par le marchand. */
@@ -152,7 +163,11 @@ object SmsParser {
         val text = TextNormalizer.fold(body)
         val hint = extract(operator, body, text, TxStatus.SUCCESS)
 
-        if (received.any { it.containsMatchIn(text) }) return Result.Ignored(IgnoreReason.RECEIVED)
+        if (receivedTransfer.any { it.containsMatchIn(text) }) {
+            if (receivedOther.any { it.containsMatchIn(text) }) return Result.Ignored(IgnoreReason.RECEIVED)
+            if (failed.any { it.containsMatchIn(text) } || hint.amount <= 0) return Result.Ignored(IgnoreReason.RECEIVED)
+            return Result.Transaction(hint.copy(kind = TxKind.RECEIVED, status = TxStatus.SUCCESS))
+        }
 
         val isTransfer = sendTransfer.any { it.containsMatchIn(text) }
         val isDeposit = !isTransfer && sendDeposit.any { it.containsMatchIn(text) }

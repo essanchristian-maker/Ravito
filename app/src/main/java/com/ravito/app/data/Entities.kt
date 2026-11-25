@@ -3,6 +3,7 @@ package com.ravito.app.data
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.ravito.app.domain.Category
 import com.ravito.app.domain.Operator
 import com.ravito.app.domain.ReportTx
 import com.ravito.app.domain.TxKind
@@ -38,12 +39,13 @@ data class TransactionEntity(
     val createdAt: Long = System.currentTimeMillis(),
 )
 
-/** Transaction + nom du carnet. */
+/** Transaction + nom et rubrique du carnet. */
 data class TransactionView(
     val tx: TransactionEntity,
     val merchantName: String?,
+    val category: Category? = null,
 ) {
-    val displayName: String? get() = merchantName ?: tx.recipientName
+    val displayName: String? get() = merchantName?.takeIf { it.isNotBlank() } ?: tx.recipientName
 
     fun toReportTx() = ReportTx(
         operator = tx.operator,
@@ -55,6 +57,8 @@ data class TransactionView(
         recipientName = displayName,
         status = tx.status,
         excluded = tx.excluded,
+        kind = tx.kind,
+        category = category,
     )
 }
 
@@ -74,11 +78,12 @@ data class UnrecognizedEntity(
     val status: ReviewStatus = ReviewStatus.PENDING,
 )
 
-/** Carnet des marchands : numéro (10 chiffres) -> nom. */
+/** Carnet des marchands : numéro (10 chiffres) -> nom (peut être vide) et rubrique du rapport. */
 @Entity(tableName = "merchants")
 data class MerchantEntity(
     @PrimaryKey val phone: String,
     val name: String,
+    val category: Category? = null,
 )
 
 /** Texte du rapport modifié à la main, par date (yyyy-MM-dd). */

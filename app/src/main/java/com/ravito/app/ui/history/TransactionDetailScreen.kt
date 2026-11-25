@@ -42,7 +42,9 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.ravito.app.domain.Category
 import com.ravito.app.domain.Formats
+import com.ravito.app.domain.TxKind
 import com.ravito.app.domain.TxSource
 import com.ravito.app.domain.TxStatus
 import com.ravito.app.ui.components.ConfirmDialog
@@ -74,7 +76,7 @@ fun TransactionDetailScreen(id: Long, onBack: () -> Unit, onEdit: (Long) -> Unit
         topBar = {
             TopAppBar(
                 colors = ravitoTopBarColors(),
-                title = { Text("Détail de l'envoi") },
+                title = { Text(if (view?.tx?.kind == TxKind.RECEIVED) "Argent reçu" else "Détail de l'envoi") },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Retour") } },
                 actions = {
                     IconButton(onClick = { onEdit(id) }) { Icon(Icons.Filled.Edit, "Modifier") }
@@ -91,6 +93,7 @@ fun TransactionDetailScreen(id: Long, onBack: () -> Unit, onEdit: (Long) -> Unit
             return@Scaffold
         }
         val tx = v.tx
+        val received = tx.kind == TxKind.RECEIVED
         Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 OperatorBadge(tx.operator, size = 52)
@@ -108,7 +111,7 @@ fun TransactionDetailScreen(id: Long, onBack: () -> Unit, onEdit: (Long) -> Unit
             InfoCard {
                 KeyValue("Opérateur", tx.operator.label)
                 KeyValue("Type", tx.kind.label)
-                KeyValue("Bénéficiaire", v.displayName ?: "—")
+                KeyValue(if (received) "Expéditeur" else "Bénéficiaire", v.displayName ?: "—")
                 KeyValue("Numéro", Formats.prettyPhone(tx.recipientNumber).ifEmpty { "—" })
                 KeyValue("Frais", tx.fee?.let { Formats.amount(it) } ?: "—")
                 KeyValue("Solde après", tx.balanceAfter?.let { Formats.amount(it) } ?: "—")
@@ -116,6 +119,16 @@ fun TransactionDetailScreen(id: Long, onBack: () -> Unit, onEdit: (Long) -> Unit
                 KeyValue("Date et heure", Instant.ofEpochMilli(tx.timestamp).atZone(ZoneId.systemDefault()).format(fullFmt))
                 KeyValue("SIM", tx.simSlot?.let { "SIM $it" } ?: "—")
                 KeyValue("Source", tx.source.label + if (tx.edited && tx.source != TxSource.MANUAL) " (corrigé)" else "")
+            }
+
+            if (!received && tx.recipientNumber != null) {
+                SectionTitle("Rubrique du rapport", Modifier.padding(start = 0.dp))
+                Text(
+                    "S'applique à tous les envois vers ce numéro, passés et futurs.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                CategoryChooser(v.category) { c -> scope.launch { app.repository.setCategory(tx.recipientNumber, c) } }
             }
 
             Row(Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -127,7 +140,7 @@ fun TransactionDetailScreen(id: Long, onBack: () -> Unit, onEdit: (Long) -> Unit
                 }
                 if (tx.recipientNumber != null) {
                     OutlinedButton(onClick = { nameDialog = true }, modifier = Modifier.weight(1f)) {
-                        Text(if (v.merchantName == null) "Nommer ce marchand" else "Renommer")
+                        Text(if (v.merchantName.isNullOrBlank()) "Nommer ce numéro" else "Renommer")
                     }
                 }
             }
@@ -181,5 +194,19 @@ fun TransactionDetailScreen(id: Long, onBack: () -> Unit, onEdit: (Long) -> Unit
             },
             onDismiss = { confirmDelete = false },
         )
+    }
+}
+
+/** Choix Cabine / Agent Mobile Money ; un 2e appui sur le choix actif le retire. */
+@Composable
+fun CategoryChooser(current: Category?, modifier: Modifier = Modifier, onPick: (Category?) -> Unit) {
+    Row(modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Category.entries.forEach { c ->
+            if (c == current) {
+                Button(onClick = { onPick(null) }, modifier = Modifier.weight(1f)) { Text(c.label, maxLines = 1) }
+            } else {
+                OutlinedButton(onClick = { onPick(c) }, modifier = Modifier.weight(1f)) { Text(c.label, maxLines = 1) }
+            }
+        }
     }
 }

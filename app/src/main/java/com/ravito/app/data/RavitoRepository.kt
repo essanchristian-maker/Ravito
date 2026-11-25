@@ -9,6 +9,7 @@ import android.provider.Telephony
 import android.telephony.SubscriptionManager
 import android.util.Log
 import androidx.core.content.ContextCompat
+import com.ravito.app.domain.Category
 import com.ravito.app.domain.Formats
 import com.ravito.app.domain.Operator
 import com.ravito.app.domain.SmsParser
@@ -51,13 +52,16 @@ class RavitoRepository(
 
     fun observeTransactions(from: Long, to: Long): Flow<List<TransactionView>> =
         combine(txDao.observeRange(from, to), merchantDao.observeAll()) { txs, merchants ->
-            val names = merchants.associate { it.phone to it.name }
-            txs.map { TransactionView(it, it.recipientNumber?.let(names::get)) }
+            val book = merchants.associateBy { it.phone }
+            txs.map { t -> t.recipientNumber?.let(book::get).let { m -> TransactionView(t, m?.name, m?.category) } }
         }
 
     fun observeTransaction(id: Long): Flow<TransactionView?> =
         combine(txDao.observe(id), merchantDao.observeAll()) { tx, merchants ->
-            tx?.let { t -> TransactionView(t, merchants.firstOrNull { it.phone == t.recipientNumber }?.name) }
+            tx?.let { t ->
+                val m = merchants.firstOrNull { it.phone == t.recipientNumber }
+                TransactionView(t, m?.name, m?.category)
+            }
         }
 
     fun observePendingReview() = reviewDao.observePending()
@@ -291,10 +295,23 @@ class RavitoRepository(
 
     suspend fun dismissReview(id: Long) = reviewDao.setStatus(id, ReviewStatus.DISMISSED)
 
-    suspend fun saveMerchant(phone: String, name: String) {
+    /** Enregistre le nom d'un numéro. [category] null = garder la rubrique existante. */
+    suspend fun saveMerchant(phone: String, name: String, category: Category? = null) {
         val p = Formats.normalizePhone(phone) ?: return
         if (name.isBlank()) return
-        merchantDao.upsert(MerchantEntity(p, name.trim()))
+        val existing = merchantDao.get(p)
+        merchantDao.upsert(MerchantEntity(p, name.trim(), category ?: existing?.category))
+    }
+
+    /** Range un numéro dans une rubrique du rapport (cabine / agent), pour toujours. */
+    suspend fun setCategory(phone: String, category: Category?) {
+        val p = Formats.normalizePhone(phone) ?: return
+        val existing = merchantDao.get(p)
+        if (category == null && existing?.name.isNullOrBlank()) {
+            merchantDao.delete(p)
+            return
+        }
+        merchantDao.upsert(MerchantEntity(p, existing?.name.orEmpty(), category))
     }
 
     suspend fun deleteMerchant(phone: String) = merchantDao.delete(phone)
@@ -303,24 +320,25 @@ class RavitoRepository(
 
     /** Export CSV (séparateur « ; », compatible Excel en français). */
     suspend fun exportCsv(out: OutputStream) = withContext(Dispatchers.IO) {
-        val names = merchantDao.getAll().associate { it.phone to it.name }
+        val book = merchantDao.getAll().associateBy { it.phone }
         val dateFmt = SimpleDateFormat("dd/MM/yyyy", Locale.FRANCE)
         val timeFmt = SimpleDateFormat("HH:mm", Locale.FRANCE)
         out.bufferedWriter(Charsets.UTF_8).use { w ->
             w.write("﻿")
-            w.write("Date;Heure;Opérateur;Type;Statut;Montant;Frais;Solde après;Numéro;Nom;Référence;SIM;Source;Exclu du rapport;SMS\r\n")
+            w.write("Date;Heure;Opérateur;Type;Rubrique;Statut;Montant;Frais;Solde après;Numéro;Nom;Référence;SIM;Source;Exclu du rapport;SMS\r\n")
             for (t in txDao.getAll()) {
                 val cols = listOf(
                     dateFmt.format(Date(t.timestamp)),
                     timeFmt.format(Date(t.timestamp)),
                     t.operator.label,
                     t.kind.label,
+                    if (t.kind == TxKind.RECEIVED) "UV reçues" else t.recipientNumber?.let(book::get)?.category?.label.orEmpty(),
                     if (t.status == TxStatus.SUCCESS) "Réussi" else "Échoué",
                     t.amount.toString(),
                     t.fee?.toString().orEmpty(),
                     t.balanceAfter?.toString().orEmpty(),
                     t.recipientNumber.orEmpty(),
-                    (t.recipientNumber?.let(names::get) ?: t.recipientName).orEmpty(),
+                    (t.recipientNumber?.let(book::get)?.name?.takeIf { it.isNotBlank() } ?: t.recipientName).orEmpty(),
                     t.reference.orEmpty(),
                     t.simSlot?.let { "SIM $it" }.orEmpty(),
                     t.source.label,

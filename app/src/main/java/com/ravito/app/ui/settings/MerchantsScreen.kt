@@ -49,6 +49,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ravito.app.data.MerchantEntity
+import com.ravito.app.ui.history.CategoryChooser
 import com.ravito.app.domain.Formats
 import com.ravito.app.ui.components.ConfirmDialog
 import com.ravito.app.ui.components.ravitoTopBarColors
@@ -123,8 +124,12 @@ fun MerchantsScreen(onBack: () -> Unit) {
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column(Modifier.weight(1f)) {
-                        Text(m.name, fontWeight = FontWeight.SemiBold)
-                        Text(Formats.prettyPhone(m.phone), style = MaterialTheme.typography.bodySmall)
+                        Text(m.name.ifBlank { Formats.prettyPhone(m.phone) }, fontWeight = FontWeight.SemiBold)
+                        Text(
+                            listOfNotNull(Formats.prettyPhone(m.phone).takeIf { m.name.isNotBlank() }, m.category?.label ?: "Non classé")
+                                .joinToString(" · "),
+                            style = MaterialTheme.typography.bodySmall,
+                        )
                     }
                     IconButton(onClick = { toDelete = m }) { Icon(Icons.Filled.Delete, "Supprimer") }
                 }
@@ -136,6 +141,7 @@ fun MerchantsScreen(onBack: () -> Unit) {
     editing?.let { m ->
         var phone by remember(m) { mutableStateOf(m.phone) }
         var name by remember(m) { mutableStateOf(m.name) }
+        var category by remember(m) { mutableStateOf(m.category) }
         AlertDialog(
             onDismissRequest = { editing = null },
             title = { Text(if (m.phone.isEmpty()) "Nouveau marchand" else "Marchand") },
@@ -149,16 +155,19 @@ fun MerchantsScreen(onBack: () -> Unit) {
                         value = name, onValueChange = { name = it }, singleLine = true, label = { Text("Nom") },
                         modifier = Modifier.padding(top = 8.dp),
                     )
+                    Text("Rubrique du rapport", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 12.dp))
+                    CategoryChooser(category) { category = it }
                 }
             },
             confirmButton = {
                 TextButton(
-                    enabled = name.isNotBlank() && Formats.normalizePhone(phone) != null,
+                    enabled = (name.isNotBlank() || category != null) && Formats.normalizePhone(phone) != null,
                     onClick = {
                         scope.launch {
                             val newPhone = Formats.normalizePhone(phone)
                             if (m.phone.isNotEmpty() && m.phone != newPhone) app.repository.deleteMerchant(m.phone)
-                            app.repository.saveMerchant(phone, name)
+                            if (name.isNotBlank()) app.repository.saveMerchant(phone, name, category)
+                            app.repository.setCategory(phone, category)
                         }
                         editing = null
                     },
@@ -170,7 +179,7 @@ fun MerchantsScreen(onBack: () -> Unit) {
 
     toDelete?.let { m ->
         ConfirmDialog(
-            title = "Supprimer ${m.name} ?",
+            title = "Supprimer ${m.name.ifBlank { Formats.prettyPhone(m.phone) }} ?",
             text = "Le numéro ${Formats.prettyPhone(m.phone)} s'affichera sans nom.",
             confirm = "Supprimer",
             onConfirm = { scope.launch { app.repository.deleteMerchant(m.phone) } },
