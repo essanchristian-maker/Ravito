@@ -150,7 +150,7 @@ fun EditTransactionScreen(txId: Long?, reviewId: Long?, onDone: () -> Unit) {
             }
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 (if (op in operators) operators else operators + op).forEach { o ->
-                    FilterChip(selected = op == o, onClick = { op = o }, label = { Text(o.label) })
+                    FilterChip(colors = com.ravito.app.ui.components.ravitoChipColors(), selected = op == o, onClick = { op = o }, label = { Text(o.label) })
                 }
             }
             OutlinedTextField(
@@ -182,8 +182,8 @@ fun EditTransactionScreen(txId: Long?, reviewId: Long?, onDone: () -> Unit) {
                 label = { Text("Référence (facultatif)") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(selected = status == TxStatus.SUCCESS, onClick = { status = TxStatus.SUCCESS }, label = { Text("Réussi") })
-                FilterChip(selected = status == TxStatus.FAILED, onClick = { status = TxStatus.FAILED }, label = { Text("Échoué") })
+                FilterChip(colors = com.ravito.app.ui.components.ravitoChipColors(), selected = status == TxStatus.SUCCESS, onClick = { status = TxStatus.SUCCESS }, label = { Text("Réussi") })
+                FilterChip(colors = com.ravito.app.ui.components.ravitoChipColors(), selected = status == TxStatus.FAILED, onClick = { status = TxStatus.FAILED }, label = { Text("Échoué") })
             }
             Button(
                 enabled = amountValue != null && amountValue > 0,

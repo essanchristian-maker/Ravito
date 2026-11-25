@@ -80,7 +80,7 @@ fun TestSmsScreen(onBack: () -> Unit) {
             Text("Opérateur", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 12.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Operator.entries.forEach { o ->
-                    FilterChip(selected = o == op, onClick = { op = o }, label = { Text(o.shortLabel) })
+                    FilterChip(colors = com.ravito.app.ui.components.ravitoChipColors(), selected = o == op, onClick = { op = o }, label = { Text(o.shortLabel) })
                 }
             }
             OutlinedTextField(
@@ -146,7 +146,7 @@ fun TestSmsScreen(onBack: () -> Unit) {
                             }
                         },
                         modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-                    ) { Text("Ajouter à l'historique (voir dans le rapport)") }
+                    ) { Text("Ajouter à l'historique") }
                 }
             }
         }

@@ -2,6 +2,12 @@
 
 package com.ravito.app.ui.report
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.unit.sp
+import com.ravito.app.ui.components.ScreenHeader
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -170,24 +176,19 @@ fun ReportScreen(onOpenReview: () -> Unit) {
     var editText by rememberSaveable { mutableStateOf("") }
     var showDate by remember { mutableStateOf(false) }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Rapport") },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimary,
-                    actionIconContentColor = MaterialTheme.colorScheme.onPrimary,
-                ),
-                actions = {
-                    IconButton(onClick = { showDate = true }) { Icon(Icons.Filled.DateRange, "Choisir la date") }
-                },
-            )
-        },
-    ) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp)) {
+    Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
+        Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState())) {
+            ScreenHeader("Rapport") {
+                IconButton(onClick = { showDate = true }) {
+                    Icon(Icons.Filled.DateRange, "Choisir la date", tint = MaterialTheme.colorScheme.primary)
+                }
+            }
+            Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
             // Choix de la date
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(50)).background(MaterialTheme.colorScheme.surface).padding(4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 IconButton(onClick = { editing = false; vm.date.value = date.minusDays(1) }) {
                     Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Jour précédent")
                 }
@@ -243,27 +244,20 @@ fun ReportScreen(onOpenReview: () -> Unit) {
                 }
             }
 
-            Row(Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                Column {
-                    Text("Total envoyé", style = MaterialTheme.typography.labelMedium)
-                    Text(Formats.amount(s.summary.total), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                }
-                Column {
-                    Text("Envois", style = MaterialTheme.typography.labelMedium)
-                    Text("${s.summary.count}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                }
+            Row(Modifier.fillMaxWidth().padding(vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                StatTile("Envoyé", Formats.amount(s.summary.total), Modifier.weight(1f))
+                StatTile("Envois", "${s.summary.count}", Modifier.weight(0.6f))
                 if (s.summary.received.count > 0) {
-                    Column {
-                        Text("UV reçues", style = MaterialTheme.typography.labelMedium)
-                        Text(Formats.amount(s.summary.received.total), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    }
+                    StatTile("UV reçues", Formats.amount(s.summary.received.total), Modifier.weight(1f))
                 }
-                if (s.summary.failed > 0) {
-                    Column {
-                        Text("Échoués", style = MaterialTheme.typography.labelMedium)
-                        Text("${s.summary.failed}", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.error)
-                    }
-                }
+            }
+            if (s.summary.failed > 0) {
+                Text(
+                    "${Formats.plural(s.summary.failed, "envoi échoué", "envois échoués")} (non comptés)",
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
             }
 
             if (editing) {
@@ -271,7 +265,8 @@ fun ReportScreen(onOpenReview: () -> Unit) {
                     value = editText,
                     onValueChange = { editText = it },
                     modifier = Modifier.fillMaxWidth().heightIn(min = 300.dp),
-                    textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
+                    textStyle = MaterialTheme.typography.bodyMedium,
+                    shape = RoundedCornerShape(20.dp),
                 )
                 Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(onClick = {
@@ -288,7 +283,8 @@ fun ReportScreen(onOpenReview: () -> Unit) {
             } else {
                 InfoCard {
                     SelectionContainer {
-                        Text(s.text, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodyMedium)
+                        // Affichage seulement : espaces insécables pour qu'un montant ne soit jamais coupé en fin de ligne.
+                        Text(unbreakableAmounts(s.text), style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 23.sp))
                     }
                 }
                 if (s.draft != null) {
@@ -305,24 +301,25 @@ fun ReportScreen(onOpenReview: () -> Unit) {
                         }
                     }
                 }
-                Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilledTonalButton(onClick = { editText = s.text; editing = true }, modifier = Modifier.weight(1f)) {
+                Button(
+                    onClick = { shareToWhatsApp(ctx, s.text) },
+                    modifier = Modifier.fillMaxWidth().padding(top = 16.dp).height(56.dp),
+                ) {
+                    Icon(Icons.Filled.Share, null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Partager sur WhatsApp")
+                }
+                Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    FilledTonalButton(onClick = { editText = s.text; editing = true }, modifier = Modifier.weight(1f).height(50.dp)) {
                         Icon(Icons.Filled.Edit, null)
                         Spacer(Modifier.width(6.dp))
                         Text("Modifier")
                     }
-                    Button(onClick = { copyToClipboard(ctx, s.text); ctx.toast("Rapport copié") }, modifier = Modifier.weight(1f)) {
+                    FilledTonalButton(onClick = { copyToClipboard(ctx, s.text); ctx.toast("Rapport copié") }, modifier = Modifier.weight(1f).height(50.dp)) {
                         Text("Copier")
                     }
                 }
-                Button(
-                    onClick = { shareToWhatsApp(ctx, s.text) },
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                ) {
-                    Icon(Icons.Filled.Share, null)
-                    Spacer(Modifier.width(6.dp))
-                    Text("Partager sur WhatsApp")
-                }
+            }
             }
         }
     }
@@ -331,3 +328,20 @@ fun ReportScreen(onOpenReview: () -> Unit) {
         DatePickDialog(date, onPick = { editing = false; vm.date.value = if (it.isAfter(LocalDate.now())) LocalDate.now() else it }, onDismiss = { showDate = false })
     }
 }
+
+@Composable
+private fun StatTile(label: String, value: String, modifier: Modifier = Modifier) {
+    Column(
+        modifier.clip(RoundedCornerShape(18.dp)).background(MaterialTheme.colorScheme.surface).padding(horizontal = 14.dp, vertical = 12.dp),
+    ) {
+        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 1)
+    }
+}
+
+private val thousands = Regex("(\\d) (?=\\d{3}\\b)")
+private val currency = Regex("(\\d) F\\b")
+
+/** « 200 000 F » reste sur une ligne à l'écran (le texte copié ou partagé n'est pas modifié). */
+private fun unbreakableAmounts(text: String): String =
+    currency.replace(thousands.replace(text, "$1 "), "$1 F")

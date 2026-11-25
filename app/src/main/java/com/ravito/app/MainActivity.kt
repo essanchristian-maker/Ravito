@@ -46,11 +46,14 @@ class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge(
-            statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+            statusBarStyle = SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT),
             navigationBarStyle = SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT),
         )
         // Pas de capture d'écran ni d'aperçu dans les applications récentes (données financières).
-        window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
+        // (sauf dans la version de test « debug », pour pouvoir vérifier le design)
+        if (!BuildConfig.DEBUG) {
+            window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
+        }
         locked = app.pin.hasPin && savedInstanceState?.getBoolean(KEY_UNLOCKED) != true
         openTab = intent?.getStringExtra(EXTRA_OPEN_TAB)
         ProcessLifecycleOwner.get().lifecycle.addObserver(processObserver)

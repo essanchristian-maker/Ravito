@@ -91,6 +91,9 @@ fun OnboardingScreen(onDone: () -> Unit) {
         LinearProgressIndicator(
             progress = { (step + 1f) / STEPS },
             modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp),
+            trackColor = MaterialTheme.colorScheme.outlineVariant,
+            gapSize = 0.dp,
+            drawStopIndicator = {},
         )
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 24.dp)) {
             when (step) {

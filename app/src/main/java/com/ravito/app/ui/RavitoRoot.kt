@@ -1,5 +1,7 @@
 package com.ravito.app.ui
 
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -54,7 +56,7 @@ import com.ravito.app.ui.settings.TemplateScreen
 private data class Tab(val route: String, val label: String, val icon: ImageVector)
 
 private val tabs = listOf(
-    Tab("history", "Historique", Icons.AutoMirrored.Filled.List),
+    Tab("history", "Accueil", Icons.Filled.Home),
     Tab("report", "Rapport", Icons.Filled.Edit),
     Tab("settings", "Paramètres", Icons.Filled.Settings),
 )
@@ -81,11 +83,11 @@ fun RavitoRoot(
     LaunchedEffect(locked) { if (locked) justOnboarded = false }
 }
 
-/** Bande verte derrière la barre d'état (icônes claires) pour les écrans sans barre de titre. */
+/** Fond clair derrière la barre d'état pour les écrans sans barre de titre. */
 @Composable
 private fun WithStatusBand(content: @Composable () -> Unit) {
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        Box(Modifier.fillMaxWidth().windowInsetsTopHeight(WindowInsets.statusBars).background(MaterialTheme.colorScheme.primary))
+        Box(Modifier.fillMaxWidth().windowInsetsTopHeight(WindowInsets.statusBars).background(MaterialTheme.colorScheme.background))
         Box(Modifier.weight(1f).consumeWindowInsets(WindowInsets.statusBars).navigationBarsPadding().imePadding()) { content() }
     }
 }
@@ -108,14 +110,24 @@ private fun MainScaffold(openTab: String?, onTabConsumed: () -> Unit) {
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
             if (showBar) {
-                NavigationBar {
-                    tabs.forEach { t ->
-                        NavigationBarItem(
-                            selected = route == t.route,
-                            onClick = { nav.goToTab(t.route) },
-                            icon = { Icon(t.icon, null) },
-                            label = { Text(t.label) },
-                        )
+                Column {
+                    androidx.compose.material3.HorizontalDivider(thickness = 0.6.dp, color = MaterialTheme.colorScheme.outlineVariant)
+                    NavigationBar(containerColor = MaterialTheme.colorScheme.surface, tonalElevation = 0.dp) {
+                        tabs.forEach { t ->
+                            NavigationBarItem(
+                                selected = route == t.route,
+                                onClick = { nav.goToTab(t.route) },
+                                icon = { Icon(t.icon, null) },
+                                label = { Text(t.label, style = MaterialTheme.typography.labelMedium) },
+                                colors = androidx.compose.material3.NavigationBarItemDefaults.colors(
+                                    selectedIconColor = MaterialTheme.colorScheme.primary,
+                                    selectedTextColor = MaterialTheme.colorScheme.primary,
+                                    indicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                ),
+                            )
+                        }
                     }
                 }
             }

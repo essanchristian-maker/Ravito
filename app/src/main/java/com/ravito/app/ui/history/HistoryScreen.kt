@@ -12,6 +12,16 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.style.TextAlign
+import com.ravito.app.ui.components.CircleAction
+import com.ravito.app.ui.components.GroupCard
+import com.ravito.app.ui.components.RowDivider
+import com.ravito.app.ui.components.ScreenHeader
+import com.ravito.app.ui.theme.AmountHero
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -165,67 +175,36 @@ fun HistoryScreen(
     var showSearch by remember { mutableStateOf(false) }
     val zone = remember { ZoneId.systemDefault() }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Historique") },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimary,
-                    actionIconContentColor = MaterialTheme.colorScheme.onPrimary,
-                ),
-                actions = {
-                    IconButton(onClick = { showSearch = !showSearch }) { Icon(Icons.Filled.Search, "Rechercher") }
-                    if (syncing) {
-                        CircularProgressIndicator(
-                            Modifier.padding(12.dp).size(24.dp),
-                            color = MaterialTheme.colorScheme.onPrimary,
-                            strokeWidth = 2.dp,
-                        )
-                    } else {
-                        IconButton(onClick = { vm.sync { ctx.toast(it) } }) { Icon(Icons.Filled.Refresh, "Synchroniser") }
-                    }
-                },
-            )
-        },
-        floatingActionButton = {
-            FloatingActionButton(onClick = onAddManual) { Icon(Icons.Filled.Add, "Ajouter un envoi à la main") }
-        },
-    ) { padding ->
+    Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(bottom = 88.dp),
+            contentPadding = PaddingValues(bottom = 32.dp),
         ) {
-            item { TodaySummary(today, settings.operatorsOrdered) }
+            item { ScreenHeader("Ravito") }
 
-            if (pending > 0) {
-                item {
-                    Row(
-                        Modifier.fillMaxWidth().clickable(onClick = onOpenReview)
-                            .background(MaterialTheme.colorScheme.secondaryContainer)
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Icon(Icons.Filled.Warning, null, tint = MaterialTheme.colorScheme.secondary)
-                        Spacer(Modifier.width(12.dp))
-                        Text(
-                            "${Formats.plural(pending, "SMS", "SMS")} à vérifier",
-                            modifier = Modifier.weight(1f),
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                        Text("Voir", color = MaterialTheme.colorScheme.primary)
-                    }
+            item { TodayHero(today, settings.operatorsOrdered) }
+
+            item {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 18.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                ) {
+                    CircleAction(Icons.Filled.Add, "Ajouter", onClick = onAddManual)
+                    CircleAction(Icons.Filled.Refresh, "Synchro", busy = syncing) { vm.sync { ctx.toast(it) } }
+                    CircleAction(Icons.Filled.Search, "Chercher") { showSearch = !showSearch }
+                    CircleAction(Icons.Filled.Warning, "Vérifier", badge = pending, onClick = onOpenReview)
                 }
             }
 
             item {
-                Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+                Column(Modifier.padding(horizontal = 16.dp)) {
                     if (showSearch || query.isNotEmpty()) {
                         OutlinedTextField(
                             value = query,
                             onValueChange = { vm.query.value = it },
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
                             singleLine = true,
+                            shape = RoundedCornerShape(16.dp),
                             placeholder = { Text("Numéro, nom ou référence") },
                             leadingIcon = { Icon(Icons.Filled.Search, null) },
                             trailingIcon = {
@@ -233,28 +212,22 @@ fun HistoryScreen(
                                     IconButton(onClick = { vm.query.value = "" }) { Icon(Icons.Filled.Clear, "Effacer") }
                                 }
                             },
+                            colors = OutlinedTextFieldDefaults.colors(
+                                unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                                focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                unfocusedBorderColor = Color.Transparent,
+                            ),
                         )
                     }
                     Row(
-                        Modifier.horizontalScroll(rememberScrollState()).padding(top = 4.dp),
+                        Modifier.horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        FilterChip(
-                            selected = date != null,
-                            onClick = { showDate = true },
-                            label = { Text(date?.format(shortDate) ?: "Toutes les dates") },
-                            leadingIcon = { Icon(Icons.Filled.DateRange, null, Modifier.size(18.dp)) },
-                        )
-                        if (date != null) {
-                            TextButton(onClick = { vm.date.value = null }) { Text("Effacer") }
-                        }
-                        FilterChip(selected = op == null, onClick = { vm.operator.value = null }, label = { Text("Tous") })
+                        Pill(date?.format(shortDate) ?: "Toutes les dates", selected = date != null) { showDate = true }
+                        if (date != null) Pill("✕", selected = false) { vm.date.value = null }
+                        Pill("Tous", selected = op == null) { vm.operator.value = null }
                         settings.operatorsOrdered.forEach { o ->
-                            FilterChip(
-                                selected = op == o,
-                                onClick = { vm.operator.value = if (op == o) null else o },
-                                label = { Text(o.shortLabel) },
-                            )
+                            Pill(o.shortLabel, selected = op == o) { vm.operator.value = if (op == o) null else o }
                         }
                     }
                 }
@@ -262,37 +235,41 @@ fun HistoryScreen(
 
             val list = items
             if (list == null) {
-                item { Text("Chargement…", Modifier.padding(24.dp)) }
+                item { Text("Chargement…", Modifier.padding(24.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
             } else if (list.isEmpty()) {
                 item {
-                    Column(Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("Aucun envoi", style = MaterialTheme.typography.titleMedium)
+                    Column(Modifier.fillMaxWidth().padding(40.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("Aucune opération", style = MaterialTheme.typography.titleMedium)
+                        Spacer(Modifier.height(6.dp))
                         Text(
-                            "Les envois apparaissent ici dès réception du SMS de confirmation. " +
-                                "Touchez ↻ pour relire la boîte de réception.",
+                            "Les envois apparaissent ici dès réception du SMS de confirmation.",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
                         )
                     }
                 }
             } else {
                 val groups = list.groupBy { Instant.ofEpochMilli(it.tx.timestamp).atZone(zone).toLocalDate() }
                 groups.forEach { (day, txs) ->
-                    stickyHeader(key = "h$day") {
+                    item(key = "d$day") {
                         val ok = txs.filter { it.tx.status == TxStatus.SUCCESS && !it.tx.excluded && it.tx.kind.isSend }
                         Row(
-                            Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant)
-                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                            Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 22.dp, bottom = 8.dp),
+                            verticalAlignment = Alignment.Bottom,
                         ) {
-                            Text(dayLabel(day), fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                            Text(dayLabel(day), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
                             Text(
-                                "${Formats.plural(ok.size, "envoi")} · ${Formats.amount(ok.sumOf { it.tx.amount })}",
+                                Formats.amount(ok.sumOf { it.tx.amount }),
                                 style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
-                    }
-                    items(txs, key = { it.tx.id }) { v ->
-                        TransactionRow(v, zone) { onOpenTransaction(v.tx.id) }
-                        HorizontalDivider(Modifier.padding(start = 68.dp))
+                        GroupCard {
+                            txs.forEachIndexed { i, v ->
+                                if (i > 0) RowDivider(start = 72)
+                                TransactionRow(v, zone) { onOpenTransaction(v.tx.id) }
+                            }
+                        }
                     }
                 }
             }
@@ -304,32 +281,54 @@ fun HistoryScreen(
     }
 }
 
+/** Puce de filtre arrondie : verte quand elle est active, blanche sinon. */
 @Composable
-private fun TodaySummary(s: ReportGenerator.Summary?, operators: List<Operator>) {
+private fun Pill(text: String, selected: Boolean, onClick: () -> Unit) {
+    Text(
+        text,
+        style = MaterialTheme.typography.labelLarge,
+        color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+        modifier = Modifier
+            .clip(RoundedCornerShape(50))
+            .background(if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 9.dp),
+    )
+}
+
+/** Carte d'accueil : total envoyé aujourd'hui en très grand, comme le solde dans Wave. */
+@Composable
+private fun TodayHero(s: ReportGenerator.Summary?, operators: List<Operator>) {
     Column(
-        Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.primary).padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
+            .clip(RoundedCornerShape(28.dp))
+            .background(MaterialTheme.colorScheme.primary)
+            .padding(vertical = 26.dp, horizontal = 20.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text("Aujourd'hui", color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f))
+        Text("Envoyé aujourd'hui", color = Color.White.copy(alpha = 0.8f), style = MaterialTheme.typography.bodyMedium)
+        Spacer(Modifier.height(4.dp))
+        Text(Formats.amount(s?.total ?: 0), style = AmountHero, color = Color.White)
+        Spacer(Modifier.height(6.dp))
+        val received = s?.received?.total ?: 0
         Text(
-            Formats.amount(s?.total ?: 0),
-            style = MaterialTheme.typography.headlineLarge,
-            color = MaterialTheme.colorScheme.onPrimary,
-            fontWeight = FontWeight.Bold,
+            Formats.plural(s?.count ?: 0, "envoi") + if (received > 0) "  ·  UV reçues ${Formats.amount(received)}" else "",
+            color = Color.White.copy(alpha = 0.85f),
+            style = MaterialTheme.typography.bodyMedium,
         )
-        Text(
-            Formats.plural(s?.count ?: 0, "envoi"),
-            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.9f),
-        )
-        Row(Modifier.padding(top = 10.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            operators.forEach { op ->
-                val o = s?.perOperator?.get(op)
-                Row(
-                    Modifier.background(Color.White.copy(alpha = 0.15f), MaterialTheme.shapes.small).padding(horizontal = 10.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    OperatorBadge(op, size = 22)
-                    Spacer(Modifier.width(6.dp))
-                    Text("${o?.count ?: 0}", color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Bold)
+        if (operators.size > 1) {
+            Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                operators.forEach { op ->
+                    val o = s?.perOperator?.get(op)
+                    Row(
+                        Modifier.clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.16f))
+                            .padding(start = 4.dp, end = 12.dp, top = 4.dp, bottom = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        OperatorBadge(op, size = 24)
+                        Spacer(Modifier.width(6.dp))
+                        Text("${o?.count ?: 0}", color = Color.White, fontWeight = FontWeight.SemiBold)
+                    }
                 }
             }
         }
@@ -342,35 +341,38 @@ fun TransactionRow(v: TransactionView, zone: ZoneId, onClick: () -> Unit) {
     val dimmed = tx.excluded || tx.status == TxStatus.FAILED
     val received = tx.kind == TxKind.RECEIVED
     Row(
-        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 12.dp),
+        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        OperatorBadge(tx.operator)
-        Spacer(Modifier.width(12.dp))
+        OperatorBadge(tx.operator, size = 42)
+        Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
             Text(
                 v.displayName ?: Formats.prettyPhone(tx.recipientNumber).ifEmpty { if (received) "Expéditeur inconnu" else "Bénéficiaire inconnu" },
-                fontWeight = FontWeight.SemiBold,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             val sub = buildList {
                 add(Instant.ofEpochMilli(tx.timestamp).atZone(zone).format(timeFmt))
                 if (received) add("UV reçues") else v.category?.let { add(it.label) }
-                if (v.displayName != null && tx.recipientNumber != null) add(Formats.prettyPhone(tx.recipientNumber))
                 tx.simSlot?.let { add("SIM $it") }
                 if (tx.status == TxStatus.FAILED) add("Échoué")
-                if (tx.excluded) add("Exclu du rapport")
+                if (tx.excluded) add("Exclu")
             }.joinToString(" · ")
             Text(
                 sub,
                 style = MaterialTheme.typography.bodySmall,
                 color = if (tx.status == TxStatus.FAILED) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
             )
         }
+        Spacer(Modifier.width(8.dp))
         Text(
-            (if (received) "+ " else "") + Formats.amount(tx.amount),
-            fontWeight = FontWeight.Bold,
+            (if (received) "+" else "-") + Formats.amount(tx.amount),
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.SemiBold,
             textDecoration = if (dimmed) TextDecoration.LineThrough else null,
             color = when {
                 dimmed -> MaterialTheme.colorScheme.onSurfaceVariant

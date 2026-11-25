@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="Theme.Ravito" parent="android:Theme.Material.Light.NoActionBar">
-        <item name="android:statusBarColor">#FF0F5132</item>
+        <item name="android:statusBarColor">#FFF2F3F6</item>
+        <item name="android:windowLightStatusBar">true</item>
         <item name="android:navigationBarColor">#FFFFFFFF</item>
-        <item name="android:windowBackground">#FFF7F8F6</item>
+        <item name="android:windowBackground">#FFF2F3F6</item>
     </style>
 </resources>

@@ -2,6 +2,8 @@
 
 package com.ravito.app.ui.settings
 
+import com.ravito.app.ui.components.GroupCard
+import com.ravito.app.ui.components.ScreenHeader
 import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -107,21 +109,13 @@ fun SettingsScreen(onOpenMerchants: () -> Unit, onOpenTemplate: () -> Unit, onOp
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Paramètres") },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimary,
-                ),
-            )
-        },
-    ) { padding ->
+    Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState())) {
+            ScreenHeader("Paramètres")
 
             // ---------------------------------------------------------- Opérateurs
             SectionTitle("Opérateurs actifs et SIM")
+            GroupCard {
             Operator.entries.forEach { op ->
                 val active = op in s.enabledOperators
                 var simMenu by remember { mutableStateOf(false) }
@@ -136,6 +130,7 @@ fun SettingsScreen(onOpenMerchants: () -> Unit, onOpenTemplate: () -> Unit, onOp
                                     Text(
                                         simLabels[s.simByOperator[op] ?: 0] + " ▾",
                                         color = MaterialTheme.colorScheme.primary,
+                                        style = MaterialTheme.typography.bodySmall,
                                         modifier = Modifier.clickable { simMenu = true }.padding(vertical = 4.dp),
                                     )
                                     DropdownMenu(expanded = simMenu, onDismissRequest = { simMenu = false }) {
@@ -150,6 +145,7 @@ fun SettingsScreen(onOpenMerchants: () -> Unit, onOpenTemplate: () -> Unit, onOp
                                 Text(
                                     "  ·  Expéditeurs",
                                     color = MaterialTheme.colorScheme.primary,
+                                    style = MaterialTheme.typography.bodySmall,
                                     modifier = Modifier.clickable { sendersFor = op }.padding(vertical = 4.dp),
                                 )
                             }
@@ -169,9 +165,10 @@ fun SettingsScreen(onOpenMerchants: () -> Unit, onOpenTemplate: () -> Unit, onOp
                 ) { ctx.openNotificationAccess() }
             }
 
-            HorizontalDivider(Modifier.padding(top = 12.dp))
+            }
             // ---------------------------------------------------------- Rapport
             SectionTitle("Rapport")
+            GroupCard {
             SettingRow("Tester un SMS", "Coller un SMS pour voir ce que Ravito en comprend", onClick = onOpenTestSms)
             SettingRow("Modèle de rapport", "Rubriques cabines, agents, UV reçues ; zones comme {date}, {total}", onClick = onOpenTemplate)
             SettingRow("Période du rapport", "De ${minutesLabel(s.period.startMinutes)} à ${minutesLabel(s.period.endMinutes)}") {
@@ -181,9 +178,10 @@ fun SettingsScreen(onOpenMerchants: () -> Unit, onOpenTemplate: () -> Unit, onOp
             SwitchRow("Afficher le solde de fin de journée", s.showBalances) { v -> app.settings.update { it.copy(showBalances = v) } }
             SettingRow("Carnet des marchands", "Numéro → nom affiché dans le rapport", onClick = onOpenMerchants)
 
-            HorizontalDivider(Modifier.padding(top = 12.dp))
+            }
             // ---------------------------------------------------------- Rappel
             SectionTitle("Rappel du soir")
+            GroupCard {
             SwitchRow("Rappel « Votre rapport est prêt »", s.reminderEnabled) { v ->
                 app.settings.update { it.copy(reminderEnabled = v) }
                 Scheduler.scheduleReminder(ctx)
@@ -192,9 +190,10 @@ fun SettingsScreen(onOpenMerchants: () -> Unit, onOpenTemplate: () -> Unit, onOp
                 SettingRow("Heure du rappel", minutesLabel(s.reminderMinutes)) { pickTime = "reminder" }
             }
 
-            HorizontalDivider(Modifier.padding(top = 12.dp))
+            }
             // ---------------------------------------------------------- Sécurité
             SectionTitle("Sécurité")
+            GroupCard {
             SettingRow("Changer le code PIN", null) { changePin = true }
             if (biometricAvailable) {
                 SwitchRow("Déverrouiller avec l'empreinte digitale", s.biometricEnabled) { v ->
@@ -206,6 +205,7 @@ fun SettingsScreen(onOpenMerchants: () -> Unit, onOpenTemplate: () -> Unit, onOp
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf(0 to "Immédiatement", 60 to "1 min", 300 to "5 min", 900 to "15 min").forEach { (sec, label) ->
                         FilterChip(
+                            colors = com.ravito.app.ui.components.ravitoChipColors(),
                             selected = s.lockTimeoutSeconds == sec,
                             onClick = { app.settings.update { it.copy(lockTimeoutSeconds = sec) } },
                             label = { Text(label) },
@@ -214,9 +214,10 @@ fun SettingsScreen(onOpenMerchants: () -> Unit, onOpenTemplate: () -> Unit, onOp
                 }
             }
 
-            HorizontalDivider(Modifier.padding(top = 12.dp))
+            }
             // ---------------------------------------------------------- Données
             SectionTitle("Données")
+            GroupCard {
             SettingRow("Exporter (fichier Excel / CSV)", "Enregistrer tout l'historique dans un fichier") {
                 exportLauncher.launch("ravito-${LocalDate.now()}.csv")
             }
@@ -248,9 +249,10 @@ fun SettingsScreen(onOpenMerchants: () -> Unit, onOpenTemplate: () -> Unit, onOp
                 }
             }
 
-            HorizontalDivider(Modifier.padding(top = 12.dp))
+            }
             // ---------------------------------------------------------- Arrière-plan
             SectionTitle("Fonctionnement en arrière-plan")
+            GroupCard {
             SettingRow(
                 "Économie de batterie",
                 if (batteryOk) "Ravito n'est pas limité ✓" else "Ravito est limité : touchez pour le retirer de l'économie de batterie",
@@ -264,7 +266,7 @@ fun SettingsScreen(onOpenMerchants: () -> Unit, onOpenTemplate: () -> Unit, onOp
             ) { ctx.openAppDetails() }
             TextButton(onClick = { refresh++ }, modifier = Modifier.padding(horizontal = 8.dp)) { Text("Actualiser l'état") }
 
-            HorizontalDivider(Modifier.padding(top = 12.dp))
+            }
             Text(
                 "Ravito ${BuildConfig.VERSION_NAME} · données stockées uniquement sur ce téléphone, base chiffrée.",
                 style = MaterialTheme.typography.bodySmall,
@@ -370,14 +372,14 @@ private fun ChangePinDialog(onDone: () -> Unit) {
 @Composable
 fun SettingRow(title: String, subtitle: String?, onClick: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 12.dp),
+        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
             Text(title)
             if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.outline)
     }
 }
 

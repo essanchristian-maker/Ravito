@@ -5,6 +5,8 @@ package com.ravito.app.ui.components
 import android.content.Context
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -70,17 +72,21 @@ fun OperatorBadge(op: Operator, size: Int = 40) {
         modifier = Modifier.size(size.dp).background(bg, CircleShape),
         contentAlignment = Alignment.Center,
     ) {
-        Text(op.badge, color = fg, fontWeight = FontWeight.Bold, fontSize = (size / 3.2).sp, maxLines = 1)
+        // Taille fixe : le badge doit tenir dans son rond quelle que soit la taille de police du téléphone.
+        val fontScale = androidx.compose.ui.platform.LocalDensity.current.fontScale
+        Text(op.badge, color = fg, fontWeight = FontWeight.Bold, fontSize = (size / 3.2 / fontScale).sp, maxLines = 1, softWrap = false)
     }
 }
 
+/** Petit titre gris au-dessus d'un groupe (style réglages iPhone). */
 @Composable
 fun SectionTitle(text: String, modifier: Modifier = Modifier) {
     Text(
-        text,
-        style = MaterialTheme.typography.titleSmall,
-        color = MaterialTheme.colorScheme.primary,
-        modifier = modifier.padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 6.dp),
+        text.uppercase(Locale.FRENCH),
+        style = MaterialTheme.typography.labelMedium,
+        fontWeight = FontWeight.Medium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = modifier.padding(start = 20.dp, end = 20.dp, top = 24.dp, bottom = 8.dp),
     )
 }
 
@@ -88,22 +94,96 @@ fun SectionTitle(text: String, modifier: Modifier = Modifier) {
 fun InfoCard(modifier: Modifier = Modifier, warning: Boolean = false, content: @Composable () -> Unit) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (warning) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface,
+            containerColor = if (warning) com.ravito.app.ui.theme.AmberSoft else MaterialTheme.colorScheme.surface,
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (warning) 0.dp else 1.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
-        Column(Modifier.padding(16.dp)) { content() }
+        Column(Modifier.padding(18.dp)) { content() }
+    }
+}
+
+/** Bloc blanc arrondi qui regroupe des lignes (listes, réglages). */
+@Composable
+fun GroupCard(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    Card(
+        modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    ) {
+        Column { content() }
+    }
+}
+
+/** Séparateur fin, décalé à gauche comme sur iPhone. */
+@Composable
+fun RowDivider(start: Int = 16) {
+    androidx.compose.material3.HorizontalDivider(
+        Modifier.padding(start = start.dp),
+        thickness = 0.6.dp,
+        color = MaterialTheme.colorScheme.outlineVariant,
+    )
+}
+
+/** Grand titre de page (style iPhone), avec des actions discrètes à droite. */
+@Composable
+fun ScreenHeader(title: String, modifier: Modifier = Modifier, actions: @Composable () -> Unit = {}) {
+    Row(
+        modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 12.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(title, style = MaterialTheme.typography.headlineLarge, modifier = Modifier.weight(1f))
+        actions()
+    }
+}
+
+/** Bouton rond avec libellé dessous, comme les actions de Wave. */
+@Composable
+fun CircleAction(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    modifier: Modifier = Modifier,
+    badge: Int = 0,
+    busy: Boolean = false,
+    onClick: () -> Unit,
+) {
+    Column(modifier.width(82.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Box {
+            Box(
+                Modifier.size(56.dp).background(MaterialTheme.colorScheme.primaryContainer, CircleShape)
+                    .clip(CircleShape).clickable(enabled = !busy, onClick = onClick),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (busy) {
+                    androidx.compose.material3.CircularProgressIndicator(
+                        Modifier.size(22.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.primary,
+                    )
+                } else {
+                    androidx.compose.material3.Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(26.dp))
+                }
+            }
+            if (badge > 0) {
+                Box(
+                    Modifier.align(Alignment.TopEnd).size(20.dp).background(MaterialTheme.colorScheme.error, CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(if (badge > 9) "9+" else "$badge", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(label, style = MaterialTheme.typography.labelMedium, maxLines = 1, softWrap = false)
     }
 }
 
 @Composable
 fun KeyValue(label: String, value: String) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(130.dp))
-        Spacer(Modifier.width(8.dp))
-        Text(value, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
+    Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.width(16.dp))
+        Text(value, fontWeight = FontWeight.Medium, textAlign = androidx.compose.ui.text.style.TextAlign.End, modifier = Modifier.weight(1f))
     }
 }
 
@@ -160,11 +240,21 @@ fun TimePickDialog(title: String, initialMinutes: Int, onPick: (Int) -> Unit, on
 @Composable
 fun VSpace(h: Int) = Spacer(Modifier.height(h.dp))
 
-/** Barre de titre verte commune à tous les écrans (icônes de la barre d'état claires). */
+/** Barre de titre claire, fondue dans le fond (style iPhone). */
 @Composable
 fun ravitoTopBarColors() = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(
-    containerColor = MaterialTheme.colorScheme.primary,
-    titleContentColor = MaterialTheme.colorScheme.onPrimary,
-    navigationIconContentColor = MaterialTheme.colorScheme.onPrimary,
-    actionIconContentColor = MaterialTheme.colorScheme.onPrimary,
+    containerColor = MaterialTheme.colorScheme.background,
+    scrolledContainerColor = MaterialTheme.colorScheme.background,
+    titleContentColor = MaterialTheme.colorScheme.onBackground,
+    navigationIconContentColor = MaterialTheme.colorScheme.primary,
+    actionIconContentColor = MaterialTheme.colorScheme.primary,
+)
+
+/** Puces de choix : vertes et pleines quand elles sont choisies (bien visibles). */
+@Composable
+fun ravitoChipColors() = androidx.compose.material3.FilterChipDefaults.filterChipColors(
+    containerColor = MaterialTheme.colorScheme.surface,
+    selectedContainerColor = MaterialTheme.colorScheme.primary,
+    selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+    selectedLeadingIconColor = MaterialTheme.colorScheme.onPrimary,
 )
