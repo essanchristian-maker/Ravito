@@ -118,6 +118,19 @@ class SmsParserTest {
         assertEquals(2_000L, t2.amount)
     }
 
+    /** Format réel d'un SMS « WAVE CI » de réception (nom, numéro et montants fictifs). */
+    @Test
+    fun waveSmsRecu() {
+        val t = tx(
+            Operator.WAVE,
+            "Vous avez recu 2.000F De KOUASSI A JEAN (0701000005) 24/11/2026 à 10h05 Nouveau solde: 15.500F  +infos: 1315 Avec UBA TBX3KWPDMUA4F9MLV",
+        )
+        assertEquals(TxKind.RECEIVED, t.kind)
+        assertEquals(2_000L, t.amount)
+        assertEquals("0701000005", t.recipientNumber)
+        assertEquals(15_500L, t.balanceAfter)
+    }
+
     @Test
     fun argentRecuQuiNestPasUnTransfertIgnore() {
         val r = SmsParser.parse(Operator.ORANGE, "Vous avez recu un remboursement de 500 FCFA. Nouveau solde: 1000 FCFA.")

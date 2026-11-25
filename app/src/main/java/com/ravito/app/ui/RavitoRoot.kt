@@ -134,6 +134,7 @@ private fun MainScaffold(openTab: String?, onTabConsumed: () -> Unit) {
                 SettingsScreen(
                     onOpenMerchants = { nav.navigate("merchants") },
                     onOpenTemplate = { nav.navigate("template") },
+                    onOpenTestSms = { nav.navigate("test-sms") },
                 )
             }
             composable("tx/{id}", arguments = listOf(navArgument("id") { type = NavType.LongType })) { e ->
@@ -156,6 +157,7 @@ private fun MainScaffold(openTab: String?, onTabConsumed: () -> Unit) {
             }
             composable("merchants") { MerchantsScreen(onBack = { nav.popBackStack() }) }
             composable("template") { TemplateScreen(onBack = { nav.popBackStack() }) }
+            composable("test-sms") { com.ravito.app.ui.settings.TestSmsScreen(onBack = { nav.popBackStack() }) }
         }
     }
 }

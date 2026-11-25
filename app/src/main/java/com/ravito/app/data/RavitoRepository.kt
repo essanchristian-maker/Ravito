@@ -88,6 +88,13 @@ class RavitoRepository(
         return process(op, text, timestamp, null, TxSource.NOTIFICATION, "Notification ${op.label}", salt = stableId)
     }
 
+    /** SMS collé dans « Tester un SMS » : ajouté à l'heure actuelle, comme une saisie manuelle. */
+    suspend fun addTestSms(op: Operator, body: String): Outcome {
+        // L'opérateur doit être actif pour apparaître dans le rapport.
+        if (op !in settings.current.enabledOperators) settings.update { it.copy(enabledOperators = it.enabledOperators + op) }
+        return process(op, body, System.currentTimeMillis(), null, TxSource.MANUAL, "Test (SMS collé)", salt = "test")
+    }
+
     private suspend fun process(
         op: Operator,
         body: String,

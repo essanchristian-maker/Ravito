@@ -76,7 +76,7 @@ import java.time.LocalDate
 private val simLabels = listOf("Automatique", "SIM 1", "SIM 2", "Application")
 
 @Composable
-fun SettingsScreen(onOpenMerchants: () -> Unit, onOpenTemplate: () -> Unit) {
+fun SettingsScreen(onOpenMerchants: () -> Unit, onOpenTemplate: () -> Unit, onOpenTestSms: () -> Unit = {}) {
     val app = rememberApp()
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -172,7 +172,8 @@ fun SettingsScreen(onOpenMerchants: () -> Unit, onOpenTemplate: () -> Unit) {
             HorizontalDivider(Modifier.padding(top = 12.dp))
             // ---------------------------------------------------------- Rapport
             SectionTitle("Rapport")
-            SettingRow("Modèle de rapport", "Texte avec des zones comme {date}, {total}, {operateurs}", onClick = onOpenTemplate)
+            SettingRow("Tester un SMS", "Coller un SMS pour voir ce que Ravito en comprend", onClick = onOpenTestSms)
+            SettingRow("Modèle de rapport", "Rubriques cabines, agents, UV reçues ; zones comme {date}, {total}", onClick = onOpenTemplate)
             SettingRow("Période du rapport", "De ${minutesLabel(s.period.startMinutes)} à ${minutesLabel(s.period.endMinutes)}") {
                 pickTime = "start"
             }
