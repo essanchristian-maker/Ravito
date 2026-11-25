@@ -78,6 +78,12 @@ fun RavitoRoot(
     when {
         !settings.onboardingDone -> WithStatusBand { OnboardingScreen(onDone = { justOnboarded = true; onUnlocked() }) }
         locked && !justOnboarded -> WithStatusBand { LockScreen(biometricAvailable, onBiometric, onUnlocked) }
+        // Personnes installées avant l'ajout du consentement : on le demande une fois.
+        settings.consentAt == 0L -> WithStatusBand {
+            com.ravito.app.ui.onboarding.ConsentScreen(onAccept = {
+                app.settings.update { it.copy(consentAt = System.currentTimeMillis()) }
+            })
+        }
         else -> MainScaffold(openTab, onTabConsumed)
     }
     LaunchedEffect(locked) { if (locked) justOnboarded = false }

@@ -25,6 +25,8 @@ data class AppSettings(
     val lockTimeoutSeconds: Int = 60,
     val lastInboxSync: Long = 0L,
     val firstSyncDays: Int = 30,
+    /** Date (ms) à laquelle l'utilisateur a coché le consentement ; 0 = pas encore. */
+    val consentAt: Long = 0L,
 ) {
     /** Opérateurs actifs, dans l'ordre d'affichage du rapport. */
     val operatorsOrdered: List<Operator> get() = Operator.entries.filter { it in enabledOperators }
@@ -78,6 +80,7 @@ class SettingsStore(context: Context) {
             lockTimeoutSeconds = prefs.getInt("lock_timeout", d.lockTimeoutSeconds),
             lastInboxSync = prefs.getLong("last_inbox_sync", 0L),
             firstSyncDays = prefs.getInt("first_sync_days", d.firstSyncDays),
+            consentAt = prefs.getLong("consent_at", 0L),
         )
     }
 
@@ -100,6 +103,7 @@ class SettingsStore(context: Context) {
             putInt("lock_timeout", s.lockTimeoutSeconds)
             putLong("last_inbox_sync", s.lastInboxSync)
             putInt("first_sync_days", s.firstSyncDays)
+            putLong("consent_at", s.consentAt)
         }.apply()
     }
 }

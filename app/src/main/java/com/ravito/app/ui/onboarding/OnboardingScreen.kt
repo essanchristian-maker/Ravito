@@ -122,15 +122,26 @@ private fun WelcomeStep(next: () -> Unit) {
     )
     VSpace(20)
     InfoCard {
-        Text("L'application lit uniquement les SMS de vos opérateurs mobile money.", fontWeight = FontWeight.SemiBold)
+        Text("Ravito n'envoie aucun SMS et ne fait aucune transaction.", fontWeight = FontWeight.SemiBold)
         VSpace(8)
-        Text("• Elle n'envoie aucun SMS et ne fait aucune transaction.")
-        Text("• Vos données restent sur ce téléphone, sans Internet.")
         Text("• Vos codes secrets ne sont jamais demandés.")
         Text("• L'ouverture est protégée par un code PIN.")
     }
-    VSpace(32)
-    Button(onClick = next, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Commencer") }
+    VSpace(12)
+    DataCommitmentCard()
+    var consent by remember { mutableStateOf(false) }
+    ConsentCheckbox(consent) { consent = it }
+    VSpace(8)
+    val app = rememberApp()
+    Button(
+        onClick = {
+            app.settings.update { it.copy(consentAt = System.currentTimeMillis()) }
+            next()
+        },
+        enabled = consent,
+        modifier = Modifier.fillMaxWidth().height(52.dp),
+    ) { Text("Commencer") }
+    VSpace(24)
 }
 
 @Composable

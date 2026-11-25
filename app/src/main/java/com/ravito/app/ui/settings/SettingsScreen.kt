@@ -218,6 +218,13 @@ fun SettingsScreen(onOpenMerchants: () -> Unit, onOpenTemplate: () -> Unit, onOp
             // ---------------------------------------------------------- Données
             SectionTitle("Données")
             GroupCard {
+            if (s.consentAt > 0) {
+                SettingRow(
+                    "Vos données restent sur ce téléphone",
+                    "Base chiffrée, rien n'est envoyé sur Internet. Consentement donné le " +
+                        java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.FRANCE).format(java.util.Date(s.consentAt)) + ".",
+                ) {}
+            }
             SettingRow("Exporter (fichier Excel / CSV)", "Enregistrer tout l'historique dans un fichier") {
                 exportLauncher.launch("ravito-${LocalDate.now()}.csv")
             }
@@ -253,6 +260,23 @@ fun SettingsScreen(onOpenMerchants: () -> Unit, onOpenTemplate: () -> Unit, onOp
             // ---------------------------------------------------------- Arrière-plan
             SectionTitle("Fonctionnement en arrière-plan")
             GroupCard {
+            if (android.os.Build.VERSION.SDK_INT >= 30) {
+                SettingRow(
+                    "Garder les autorisations",
+                    "Désactivez « Suspendre l'activité si l'appli n'est pas utilisée » pour qu'Android ne retire jamais l'accès aux SMS",
+                ) {
+                    try {
+                        ctx.startActivity(
+                            android.content.Intent(
+                                android.content.Intent.ACTION_AUTO_REVOKE_PERMISSIONS,
+                                android.net.Uri.fromParts("package", ctx.packageName, null),
+                            ),
+                        )
+                    } catch (e: Exception) {
+                        ctx.openAppDetails()
+                    }
+                }
+            }
             SettingRow(
                 "Économie de batterie",
                 if (batteryOk) "Ravito n'est pas limité ✓" else "Ravito est limité : touchez pour le retirer de l'économie de batterie",
