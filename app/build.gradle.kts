@@ -28,6 +28,8 @@ android {
         versionCode = (System.getenv("RAVITO_VERSION_CODE") ?: "1").toInt()
         versionName = "1.0.${System.getenv("RAVITO_VERSION_CODE") ?: "0"}"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // Téléphones uniquement (ARM) : APK plus léger à télécharger.
+        ndk { abiFilters += listOf("armeabi-v7a", "arm64-v8a") }
     }
 
     signingConfigs {

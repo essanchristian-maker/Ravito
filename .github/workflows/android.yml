@@ -9,6 +9,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -40,6 +42,20 @@ jobs:
           RAVITO_KEY_PASSWORD: ${{ secrets.RAVITO_KEY_PASSWORD }}
           RAVITO_VERSION_CODE: ${{ github.run_number }}
         run: ./gradlew --no-daemon assembleRelease
+
+      # Lien permanent pour les agents :
+      # https://github.com/<compte>/Ravito/releases/latest/download/Ravito.apk
+      - name: Publier l'APK (lien de téléchargement direct)
+        if: github.event_name == 'push' && env.RAVITO_KEYSTORE_FILE != ''
+        run: cp app/build/outputs/apk/release/*.apk Ravito.apk
+      - uses: softprops/action-gh-release@v2
+        if: github.event_name == 'push' && env.RAVITO_KEYSTORE_FILE != ''
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: Ravito 1.0.${{ github.run_number }}
+          body: "Sur le téléphone : ouvrir le lien dans Chrome, télécharger Ravito.apk, puis Ouvrir. Android 6.0 minimum."
+          files: Ravito.apk
+          make_latest: true
 
       - uses: actions/upload-artifact@v4
         with:
