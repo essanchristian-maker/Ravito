@@ -158,9 +158,9 @@ class RavitoRepository(
 
     /**
      * Relit la boîte de réception depuis la dernière lecture (avec 2 h de marge, les doublons sont écartés).
-     * @param fullDays si non nul, relit les N derniers jours.
+     * @param fullHours si non nul, relit les N dernières heures (24, 48, 720 = 30 jours).
      */
-    suspend fun syncInbox(fullDays: Int? = null): SyncReport = syncMutex.withLock {
+    suspend fun syncInbox(fullHours: Int? = null): SyncReport = syncMutex.withLock {
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_SMS) != PackageManager.PERMISSION_GRANTED) {
             return SyncReport(0, 0, 0, "Autorisation SMS refusée")
         }
@@ -170,7 +170,7 @@ class RavitoRepository(
                 val s = settings.current
                 val now = System.currentTimeMillis()
                 val since = when {
-                    fullDays != null -> now - fullDays * 86_400_000L
+                    fullHours != null -> now - fullHours * 3_600_000L
                     s.lastInboxSync == 0L -> now - s.firstSyncDays * 86_400_000L
                     else -> s.lastInboxSync - 2 * 3_600_000L
                 }

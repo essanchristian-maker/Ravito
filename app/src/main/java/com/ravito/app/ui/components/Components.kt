@@ -258,3 +258,20 @@ fun ravitoChipColors() = androidx.compose.material3.FilterChipDefaults.filterChi
     selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
     selectedLeadingIconColor = MaterialTheme.colorScheme.onPrimary,
 )
+
+/** Périodes proposées pour relire les SMS : libellé -> nombre d'heures. */
+val RereadPeriods: List<Pair<String, Int>> = listOf("24 heures" to 24, "48 heures" to 48, "30 jours" to 30 * 24)
+
+/** Trois boutons pour choisir la période à relire. */
+@Composable
+fun RereadPeriodButtons(modifier: Modifier = Modifier, onPick: (Int) -> Unit) {
+    Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        RereadPeriods.forEach { (label, hours) ->
+            androidx.compose.material3.FilledTonalButton(
+                onClick = { onPick(hours) },
+                modifier = Modifier.weight(1f).height(50.dp),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp),
+            ) { Text(label, maxLines = 1, softWrap = false) }
+        }
+    }
+}

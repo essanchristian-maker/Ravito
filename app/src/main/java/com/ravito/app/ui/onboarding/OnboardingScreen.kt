@@ -282,25 +282,31 @@ private fun FirstSyncStep(done: () -> Unit) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     var result by remember { mutableStateOf<RavitoRepository.SyncReport?>(null) }
+    /** Période choisie (heures) ; null = pas encore choisie. */
+    var hours by remember { mutableStateOf<Int?>(null) }
     var batteryRefresh by remember { mutableIntStateOf(0) }
     val batteryOk = remember(batteryRefresh) { ctx.isIgnoringBatteryOptimizations() }
 
-    LaunchedEffect(Unit) {
-        result = app.repository.syncInbox(fullDays = app.settings.current.firstSyncDays)
+    LaunchedEffect(hours) {
+        hours?.let { result = app.repository.syncInbox(fullHours = it) }
     }
 
     VSpace(24)
     Text("Première lecture des SMS", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
     VSpace(16)
     val r = result
-    if (r == null) {
+    if (hours == null) {
+        Text("Quels SMS déjà reçus voulez-vous lire ?")
+        VSpace(12)
+        com.ravito.app.ui.components.RereadPeriodButtons { hours = it }
+    } else if (r == null) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             CircularProgressIndicator(Modifier.padding(end = 16.dp))
-            Text("Lecture des SMS des ${app.settings.current.firstSyncDays} derniers jours…")
+            Text("Lecture des SMS des " + com.ravito.app.ui.components.RereadPeriods.first { it.second == hours }.first + "…")
         }
     } else if (r.error != null) {
         Text("Lecture impossible : ${r.error}", color = MaterialTheme.colorScheme.error)
-        TextButton(onClick = { scope.launch { result = null; result = app.repository.syncInbox(fullDays = 30) } }) { Text("Réessayer") }
+        TextButton(onClick = { scope.launch { val h = hours ?: 24; result = null; result = app.repository.syncInbox(fullHours = h) } }) { Text("Réessayer") }
     } else {
         InfoCard {
             Text("${r.scanned} SMS mobile money lus", fontWeight = FontWeight.SemiBold)

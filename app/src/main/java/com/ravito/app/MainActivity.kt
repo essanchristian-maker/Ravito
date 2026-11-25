@@ -49,10 +49,13 @@ class MainActivity : FragmentActivity() {
             statusBarStyle = SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT),
             navigationBarStyle = SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT),
         )
-        // Pas de capture d'écran ni d'aperçu dans les applications récentes (données financières).
-        // (sauf dans la version de test « debug », pour pouvoir vérifier le design)
-        if (!BuildConfig.DEBUG) {
-            window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
+        // Par défaut, pas de capture ni de partage d'écran (données financières).
+        // L'utilisateur peut l'autoriser dans Paramètres → Sécurité ; la version « debug » l'autorise toujours.
+        lifecycleScope.launch {
+            app.settings.state.collect { s ->
+                if (BuildConfig.DEBUG || s.allowScreenCapture) window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                else window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
+            }
         }
         locked = app.pin.hasPin && savedInstanceState?.getBoolean(KEY_UNLOCKED) != true
         openTab = intent?.getStringExtra(EXTRA_OPEN_TAB)

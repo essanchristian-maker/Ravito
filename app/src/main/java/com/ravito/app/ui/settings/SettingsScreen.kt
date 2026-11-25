@@ -95,6 +95,7 @@ fun SettingsScreen(onOpenMerchants: () -> Unit, onOpenTemplate: () -> Unit, onOp
     var sendersFor by remember { mutableStateOf<Operator?>(null) }
     var pickTime by remember { mutableStateOf<String?>(null) }
     var changePin by remember { mutableStateOf(false) }
+    var rereadDialog by remember { mutableStateOf(false) }
 
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
         if (uri != null) {
@@ -195,6 +196,9 @@ fun SettingsScreen(onOpenMerchants: () -> Unit, onOpenTemplate: () -> Unit, onOp
             SectionTitle("Sécurité")
             GroupCard {
             SettingRow("Changer le code PIN", null) { changePin = true }
+            SwitchRow("Autoriser captures et partage d'écran", s.allowScreenCapture) { v ->
+                app.settings.update { it.copy(allowScreenCapture = v) }
+            }
             if (biometricAvailable) {
                 SwitchRow("Déverrouiller avec l'empreinte digitale", s.biometricEnabled) { v ->
                     app.settings.update { it.copy(biometricEnabled = v) }
@@ -247,14 +251,9 @@ fun SettingsScreen(onOpenMerchants: () -> Unit, onOpenTemplate: () -> Unit, onOp
                 }
             }
             SettingRow(
-                "Relire les SMS des 30 derniers jours",
-                if (syncing) "Lecture en cours…" else "Récupère les envois manquants (sans doublon)",
-            ) {
-                if (!syncing) scope.launch {
-                    val r = app.repository.syncInbox(fullDays = 30)
-                    ctx.toast(r.error?.let { "Erreur : $it" } ?: "${r.scanned} SMS lus, ${r.added} envois ajoutés")
-                }
-            }
+                "Relire les SMS",
+                if (syncing) "Lecture en cours…" else "24 h, 48 h ou 30 jours : récupère les envois manquants (sans doublon)",
+            ) { if (!syncing) rereadDialog = true }
 
             }
             // ---------------------------------------------------------- Arrière-plan
@@ -301,6 +300,26 @@ fun SettingsScreen(onOpenMerchants: () -> Unit, onOpenTemplate: () -> Unit, onOp
     }
 
     // ---------------------------------------------------------- Dialogues
+    if (rereadDialog) {
+        AlertDialog(
+            onDismissRequest = { rereadDialog = false },
+            title = { Text("Relire les SMS") },
+            text = {
+                Column {
+                    Text("Quelle période voulez-vous relire ? Les envois déjà enregistrés ne sont pas ajoutés deux fois.")
+                    com.ravito.app.ui.components.RereadPeriodButtons(Modifier.padding(top = 16.dp)) { hours ->
+                        rereadDialog = false
+                        scope.launch {
+                            val r = app.repository.syncInbox(fullHours = hours)
+                            ctx.toast(r.error?.let { "Erreur : $it" } ?: "${r.scanned} SMS lus, ${r.added} envois ajoutés")
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = { TextButton(onClick = { rereadDialog = false }) { Text("Annuler") } },
+        )
+    }
     sendersFor?.let { op ->
         var text by remember(op) { mutableStateOf((s.extraSenders[op] ?: emptyList()).joinToString(", ")) }
         AlertDialog(
