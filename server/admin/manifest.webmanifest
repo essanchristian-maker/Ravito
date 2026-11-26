@@ -1,0 +1,18 @@
+{
+  "name": "Ravito Gestion",
+  "short_name": "Ravito Gestion",
+  "description": "Pilotage de Ravito : demandes, clients, paiements, relances.",
+  "id": "/admin/",
+  "start_url": "/admin/",
+  "scope": "/admin/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F2F3F6",
+  "theme_color": "#0B8A5A",
+  "lang": "fr",
+  "icons": [
+    { "src": "/admin/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/admin/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/admin/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

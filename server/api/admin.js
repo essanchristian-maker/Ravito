@@ -1,4 +1,12 @@
-// API du portail admin. Toutes les requêtes exigent :  Authorization: Bearer <ADMIN_PASSWORD>
+// API du portail « Ravito Gestion ».
+//   POST ?action=login   {password}               -> { session } (12 h)
+//   POST ?action=recover {recovery, password}     mot de passe oublié -> nouveau code de secours
+// Toutes les autres requêtes exigent :  Authorization: Bearer <session>
+// Les actions sensibles exigent en plus le mot de passe dans le champ « confirm ».
+//   POST ?action=set_password {confirm, password}  -> nouveau code de secours
+//   GET  ?action=vapid / POST ?action=subscribe {subscription, label} / POST ?action=unsubscribe {endpoint}
+//   POST ?action=pin_reset {code, confirm}        code de réinitialisation du PIN (24 h)
+//   POST ?action=claim_dismiss {code}              ignorer une déclaration de paiement
 //   GET  ?action=list                     clients + statut + dernière activité
 //   GET  ?action=detail&code=X            fiche complète (stats, erreurs, SMS non reconnus masqués)
 //   GET  ?action=config                   réglages globaux
@@ -15,19 +23,17 @@
 //   POST ?action=prospect_delete {id}
 //   POST ?action=config   {priceFcfa, omNumber, trialDays, checkDays, graceDays, notice}
 import crypto from 'node:crypto';
+import { checkPassword, checkRecovery, checkSession, newSession, passwordIsValid, setPassword } from '../lib/auth.js';
+import { notify, subscribe, unsubscribe, vapidPublicKey } from '../lib/push.js';
 import { listPathnames, readJson, remove, writeJson } from '../lib/store.js';
 import { addMonths, body, DEFAULT_CONFIG, expiry, loadConfig, makeCode, normalizeCode, send, statusOf } from '../lib/core.js';
 
 const DAY = 86_400_000;
 
-function authorized(req) {
-  const expected = String(process.env.ADMIN_PASSWORD || '');
-  const given = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
-  if (!expected || !given) return false;
-  const a = crypto.createHash('sha256').update(expected).digest();
-  const b = crypto.createHash('sha256').update(given).digest();
-  return crypto.timingSafeEqual(a, b);
-}
+const SENSITIVE = new Set(['pay', 'block', 'transfer', 'delete', 'pin_reset', 'config', 'set_password', 'trial']);
+
+/** Ralentit les essais de mot de passe (anti-devinette). */
+const slow = () => new Promise((r) => setTimeout(r, 700));
 
 const sum7 = (stats, key) => {
   const days = Object.keys(stats || {}).sort().slice(-7);
@@ -56,6 +62,8 @@ function summary(client, st, cfg) {
     device: client.device || null,
     hasDevice: !!client.deviceId,
     payments: client.payments || [],
+    claim: client.claim || null,
+    pinReset: client.pinReset && client.pinReset.exp > Date.now() ? { code: client.pinReset.code, exp: client.pinReset.exp } : null,
     lastSeen: st?.lastSeen || null,
     versionName: st?.versionName || null,
     operators: st?.operators || [],
@@ -73,10 +81,39 @@ async function getClient(code) {
 }
 
 export default async function handler(req, res) {
-  if (!authorized(req)) return send(res, 401, { error: 'non_autorise' });
   const action = String(req.query.action || '');
-  const cfg = await loadConfig();
   const b = req.method === 'POST' ? body(req) : {};
+
+  // --- Connexion et mot de passe oublié (sans session)
+  if (action === 'login') {
+    if (!(await checkPassword(b.password))) { await slow(); return send(res, 401, { error: 'mot_de_passe' }); }
+    return send(res, 200, { session: await newSession() });
+  }
+  if (action === 'recover') {
+    if (!(await checkRecovery(b.recovery))) { await slow(); return send(res, 401, { error: 'code_secours' }); }
+    if (!passwordIsValid(b.password)) return send(res, 400, { error: 'Le mot de passe doit faire au moins 8 caractères.' });
+    const recovery = await setPassword(b.password);
+    await notify('🔑 Mot de passe du portail changé', 'Le mot de passe a été réinitialisé avec le code de secours.');
+    return send(res, 200, { session: await newSession(), recovery });
+  }
+
+  const token = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+  if (!(await checkSession(token))) return send(res, 401, { error: 'non_autorise' });
+  if (SENSITIVE.has(action) && req.method === 'POST' && !(await checkPassword(b.confirm))) {
+    await slow();
+    return send(res, 403, { error: 'confirmation' });
+  }
+  const cfg = await loadConfig();
+
+  if (action === 'set_password') {
+    if (!passwordIsValid(b.password)) return send(res, 400, { error: 'Le mot de passe doit faire au moins 8 caractères.' });
+    const recovery = await setPassword(b.password);
+    return send(res, 200, { session: await newSession(), recovery });
+  }
+  if (action === 'vapid') return send(res, 200, { key: vapidPublicKey() });
+  if (action === 'subscribe') { await subscribe(b.subscription, b.label); return send(res, 200, { ok: true }); }
+  if (action === 'unsubscribe') { await unsubscribe(b.endpoint); return send(res, 200, { ok: true }); }
+  if (action === 'test_push') return send(res, 200, { sent: await notify('Ravito Gestion', 'Les notifications fonctionnent ✅') });
 
   try {
     if (action === 'list') {
@@ -186,15 +223,24 @@ export default async function handler(req, res) {
     const now = Date.now();
 
     if (action === 'pay') {
-      const months = Math.max(1, Math.min(24, Number(b.months) || 1));
+      const months = Math.max(1, Math.min(24, Math.round(Number(b.months) || 1)));
       const base = Math.max(now, expiry(client) || now);
       client.paidUntil = addMonths(base, months);
-      client.payments = [...(client.payments || []), { at: now, months, amount: Number(b.amount) || cfg.priceFcfa * months }];
+      const amount = Number(b.amount) > 0 ? Math.round(Number(b.amount)) : cfg.priceFcfa * months;
+      client.payments = [...(client.payments || []), { at: now, months, amount }];
+      client.claim = null; // la déclaration « J'ai payé » est traitée
     } else if (action === 'trial') {
       const days = Math.max(1, Math.min(90, Number(b.days) || 7));
       if (client.paidUntil) client.paidUntil += days * DAY;
       else if (client.trialEnd) client.trialEnd = Math.max(now, client.trialEnd) + days * DAY;
       else client.trialDays = (client.trialDays || cfg.trialDays) + days;
+    } else if (action === 'claim_dismiss') {
+      client.claim = null;
+    } else if (action === 'pin_reset') {
+      const code = String(crypto.randomInt(100000, 1000000));
+      client.pinReset = { code, exp: now + DAY };
+      await writeJson(`clients/${client.code}.json`, client);
+      return send(res, 200, { client: summary(client, null, cfg), resetCode: code });
     } else if (action === 'block') {
       client.blocked = !!b.blocked;
     } else if (action === 'transfer') {

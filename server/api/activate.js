@@ -2,6 +2,7 @@
 // Lie le code d'invitation à CE téléphone (une seule fois) et renvoie la licence signée.
 import { readJson, writeJson } from '../lib/store.js';
 import { body, loadConfig, normalizeCode, send, signLicense } from '../lib/core.js';
+import { notify } from '../lib/push.js';
 
 const DAY = 86_400_000;
 
@@ -36,6 +37,7 @@ export default async function handler(req, res) {
     }
     client.device = { model: String(b.model || '').slice(0, 80), android: String(b.android || '').slice(0, 20) };
     await writeJson(path, client);
+    await notify(`✅ ${client.name} a activé Ravito`, `${client.device.model || 'Téléphone'} · essai jusqu'au ${new Date(client.trialEnd || client.paidUntil).toLocaleDateString('fr-FR')}`, `/admin/?code=${encodeURIComponent(code)}`);
   }
 
   return send(res, 200, { token: signLicense(client, cfg) });

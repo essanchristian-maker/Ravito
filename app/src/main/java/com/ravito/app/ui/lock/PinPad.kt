@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ravito.app.ui.components.rememberApp
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /**
  * Clavier à 4 chiffres. [onComplete] renvoie true si le code est accepté ; sinon le champ est vidé.
@@ -111,6 +112,34 @@ fun LockScreen(biometricAvailable: Boolean, onBiometric: () -> Unit, onUnlocked:
     val app = rememberApp()
     var error by remember { mutableStateOf<String?>(null) }
     var wait by remember { mutableStateOf(app.pin.waitSeconds()) }
+    var forgot by remember { mutableStateOf(false) }
+    var newPinStep by remember { mutableStateOf(0) } // 0 = déverrouillage, 1 = nouveau PIN, 2 = confirmation
+    var firstPin by remember { mutableStateOf("") }
+
+    if (newPinStep > 0) {
+        Column(
+            Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(top = 48.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Icon(Icons.Filled.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(40.dp))
+            androidx.compose.runtime.key(newPinStep) {
+                PinPad(
+                    title = if (newPinStep == 1) "Nouveau code PIN" else "Confirmez le code PIN",
+                    subtitle = "4 chiffres. Vos données sont conservées.",
+                    error = error,
+                ) { pin ->
+                    if (newPinStep == 1) { firstPin = pin; error = null; newPinStep = 2; true }
+                    else if (pin == firstPin) { app.pin.setPin(pin); error = null; newPinStep = 0; onUnlocked(); true }
+                    else { error = "Les deux codes sont différents, recommencez."; newPinStep = 1; false }
+                }
+            }
+        }
+        return
+    }
+
+    if (forgot) {
+        ForgotPinDialog(onDismiss = { forgot = false }) { forgot = false; error = null; newPinStep = 1 }
+    }
 
     LaunchedEffect(biometricAvailable) { if (biometricAvailable) onBiometric() }
     LaunchedEffect(wait) {
@@ -130,9 +159,12 @@ fun LockScreen(biometricAvailable: Boolean, onBiometric: () -> Unit, onUnlocked:
             title = "Ravito",
             subtitle = "Entrez votre code PIN",
             error = error,
-            extraAction = if (biometricAvailable) {
-                { TextButton(onClick = onBiometric) { Text("Utiliser l'empreinte digitale") } }
-            } else null,
+            extraAction = {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    if (biometricAvailable) TextButton(onClick = onBiometric) { Text("Utiliser l'empreinte digitale") }
+                    TextButton(onClick = { forgot = true }) { Text("Code PIN oublié ?") }
+                }
+            },
         ) { pin ->
             if (app.pin.waitSeconds() > 0) {
                 wait = app.pin.waitSeconds()
@@ -148,4 +180,47 @@ fun LockScreen(biometricAvailable: Boolean, onBiometric: () -> Unit, onUnlocked:
             }
         }
     }
+}
+
+/**
+ * Code PIN oublié : la personne entre son code personnel Ravito (reçu par WhatsApp)
+ * ou le code à 6 chiffres envoyé par le vendeur. Internet nécessaire.
+ */
+@Composable
+private fun ForgotPinDialog(onDismiss: () -> Unit, onVerified: () -> Unit) {
+    val app = rememberApp()
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    var value by remember { mutableStateOf("") }
+    var busy by remember { mutableStateOf(false) }
+    var err by remember { mutableStateOf<String?>(null) }
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Code PIN oublié") },
+        text = {
+            Column {
+                Text("Entrez votre code personnel Ravito (ex. KOFFI-4821, reçu par WhatsApp) ou le code à 6 chiffres envoyé par le vendeur.")
+                androidx.compose.material3.OutlinedTextField(
+                    value = value,
+                    onValueChange = { value = it.uppercase(); err = null },
+                    singleLine = true,
+                    label = { Text("Code") },
+                    modifier = Modifier.padding(top = 12.dp),
+                )
+                err?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp)) }
+            }
+        },
+        confirmButton = {
+            TextButton(enabled = !busy && value.isNotBlank(), onClick = {
+                busy = true
+                scope.launch {
+                    when (val r = app.license.verifyPinReset(value)) {
+                        is com.ravito.app.license.LicenseManager.Result.Ok -> onVerified()
+                        is com.ravito.app.license.LicenseManager.Result.Error -> err = r.message
+                    }
+                    busy = false
+                }
+            }) { Text(if (busy) "Vérification…" else "Valider") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Annuler") } },
+    )
 }

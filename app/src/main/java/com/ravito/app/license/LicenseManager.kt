@@ -169,6 +169,29 @@ class LicenseManager(private val context: Context) {
         }
     }
 
+    /** « J'ai payé » : prévient le vendeur (notification) pour qu'il valide le paiement. */
+    suspend fun claimPayment(months: Int): Result = withContext(Dispatchers.IO) {
+        val code = code ?: return@withContext Result.Error("Aucun code sur ce téléphone.")
+        val body = JSONObject().put("code", code).put("deviceId", deviceId).put("months", months)
+        when (val r = post("/api/claim", body)) {
+            is Http.Failure -> Result.Error(r.message)
+            is Http.Response -> if (r.status == 200) Result.Ok else Result.Error("Envoi impossible (${r.status}). Réessayez.")
+        }
+    }
+
+    /**
+     * Code PIN oublié : vérifie le code personnel Ravito OU le code à 6 chiffres donné par le vendeur.
+     * Seul le téléphone lié au code peut le faire.
+     */
+    suspend fun verifyPinReset(value: String): Result = withContext(Dispatchers.IO) {
+        val code = code ?: return@withContext Result.Error("Aucun code sur ce téléphone.")
+        val body = JSONObject().put("code", code).put("deviceId", deviceId).put("value", value.trim())
+        when (val r = post("/api/pinreset", body)) {
+            is Http.Failure -> Result.Error(r.message)
+            is Http.Response -> if (r.status == 200) Result.Ok else Result.Error("Code incorrect. Utilisez votre code Ravito (ex. KOFFI-4821) ou le code envoyé par le vendeur.")
+        }
+    }
+
     /** Faut-il contacter le serveur maintenant ? (au plus souvent toutes les [minMinutes] minutes) */
     fun checkinDue(minMinutes: Int): Boolean =
         code != null && System.currentTimeMillis() - prefs.getLong(KEY_LAST_ATTEMPT, 0L) >= minMinutes * 60_000L

@@ -4,7 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>Ravito · Portail</title>
+<title>Ravito Gestion</title>
+<link rel="manifest" href="/admin/manifest.webmanifest">
+<meta name="theme-color" content="#0B8A5A">
+<link rel="icon" href="/admin/icon-192.png">
+<link rel="apple-touch-icon" href="/admin/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -71,6 +76,11 @@
   .login { max-width: 380px; margin: 12vh auto; }
   .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 11px 18px; border-radius: 999px; display: none; }
   .empty { text-align: center; padding: 40px; color: var(--ink-soft); }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+  .chip { border: 1px solid var(--line); background: var(--white); border-radius: 999px; padding: 8px 13px; cursor: pointer; font-weight: 500; }
+  .chip.on { background: var(--green); color: #fff; border-color: var(--green); }
+  .claim { background: var(--amber-soft); border-radius: 16px; padding: 14px 16px; margin-bottom: 12px; }
+  .link { color: var(--green); cursor: pointer; text-decoration: underline; background: none; border: 0; padding: 0; font: inherit; }
   @media (max-width: 760px) { .hide-sm { display: none; } }
 </style>
 </head>
@@ -108,17 +118,51 @@ const needsFollowUp = (x) => x.status === 'expire' || ((x.status === 'essai' || 
 
 function toast(msg) { const t = $('#toast'); t.textContent = msg; t.style.display = 'block'; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = 'none', 2600); }
 
+const LOCK_MS = 15 * 60_000; // verrouillage après 15 min sans activité
+const session = {
+  get: () => localStorage.getItem('ravito_session'),
+  set: (s) => { localStorage.setItem('ravito_session', s); touch(); },
+  clear: () => localStorage.removeItem('ravito_session'),
+};
+function touch() { localStorage.setItem('ravito_seen', String(Date.now())); }
+['click', 'keydown', 'touchstart'].forEach((ev) => addEventListener(ev, () => { if (session.get()) touch(); }, { passive: true }));
+setInterval(() => {
+  if (session.get() && Date.now() - Number(localStorage.getItem('ravito_seen') || 0) > LOCK_MS) { session.clear(); renderLogin('Verrouillé après 15 minutes sans activité.'); }
+}, 30_000);
+
 async function api(action, data, extra = '') {
-  const pw = sessionStorage.getItem('ravito_pw');
   const r = await fetch(`/api/admin?action=${action}${extra}`, {
     method: data ? 'POST' : 'GET',
-    headers: { Authorization: `Bearer ${pw}`, 'Content-Type': 'application/json' },
+    headers: { Authorization: `Bearer ${session.get() || ''}`, 'Content-Type': 'application/json' },
     body: data ? JSON.stringify(data) : undefined,
   });
-  if (r.status === 401) { sessionStorage.removeItem('ravito_pw'); renderLogin('Mot de passe incorrect.'); throw new Error('401'); }
-  const j = await r.json();
+  if (r.status === 401 && !['login', 'recover'].includes(action)) { session.clear(); renderLogin('Session expirée, reconnectez-vous.'); throw new Error('401'); }
+  const j = await r.json().catch(() => ({}));
+  if (r.status === 403 && j.error === 'confirmation') throw new Error('Mot de passe incorrect');
   if (!r.ok) throw new Error(j.error || 'erreur');
   return j;
+}
+
+/** Demande le mot de passe avant une action sensible. Renvoie le mot de passe, ou null si annulé. */
+function askPassword(title, detail = '') {
+  return new Promise((resolve) => {
+    modal(`<h2 style="margin:0 0 6px">${esc(title)}</h2>
+      ${detail ? `<p class="muted" style="margin:0 0 14px">${esc(detail)}</p>` : ''}
+      <label class="field"><span>Votre mot de passe pour confirmer</span><input class="input" id="cf-pw" type="password" autocomplete="current-password"></label>
+      <div class="actions"><button class="btn" id="cf-ok">Confirmer</button><button class="btn ghost" id="cf-no">Annuler</button></div>`);
+    const done = (v) => { closeModal(); resolve(v); };
+    $('#cf-pw').focus();
+    $('#cf-ok').onclick = () => done($('#cf-pw').value.trim() || null);
+    $('#cf-pw').onkeydown = (e) => e.key === 'Enter' && done($('#cf-pw').value.trim() || null);
+    $('#cf-no').onclick = () => done(null);
+  });
+}
+
+/** Action sensible : mot de passe puis appel serveur. */
+async function sensitive(action, data, title, detail) {
+  const confirm = await askPassword(title, detail);
+  if (!confirm) return null;
+  return api(action, { ...data, confirm });
 }
 
 function renderLogin(err = '') {
@@ -130,10 +174,46 @@ function renderLogin(err = '') {
       <label style="display:flex;align-items:center;gap:8px;margin:-4px 0 14px;color:var(--ink-soft);font-size:14px;cursor:pointer"><input type="checkbox" id="pw-show"> Afficher le mot de passe</label>
       ${err ? `<p style="color:var(--red);margin:0 0 12px">${esc(err)}</p>` : ''}
       <button class="btn" id="go" style="width:100%">Se connecter</button>
-    </div></div>`;
+      <p style="text-align:center;margin:16px 0 0"><button class="link" id="forgot">Mot de passe oublié ?</button></p>
+    </div></div>
+    <div class="modal-bg" id="modal"><div class="modal" id="modal-body"></div></div>`;
   $('#pw-show').onchange = (e) => { $('#pw').type = e.target.checked ? 'text' : 'password'; $('#pw').focus(); };
-  const go = async () => { sessionStorage.setItem('ravito_pw', $('#pw').value.trim()); await load(); };
+  const go = async () => {
+    $('#go').disabled = true;
+    try { const j = await api('login', { password: $('#pw').value.trim() }); session.set(j.session); await load(); }
+    catch (e) { if (e.message !== '401') renderLogin('Mot de passe incorrect.'); }
+  };
   $('#go').onclick = go; $('#pw').onkeydown = (e) => e.key === 'Enter' && go();
+  $('#forgot').onclick = openRecover;
+}
+
+function openRecover() {
+  modal(`<h2 style="margin:0 0 6px">Mot de passe oublié</h2>
+    <p class="muted" style="margin:0 0 14px">Entrez votre code de secours (format XXXX-XXXX-XXXX), puis choisissez un nouveau mot de passe.</p>
+    <label class="field"><span>Code de secours</span><input class="input mono" id="rc-code" autocomplete="off"></label>
+    <label class="field"><span>Nouveau mot de passe (8 caractères minimum)</span><input class="input" id="rc-pw" type="password"></label>
+    <label class="field"><span>Répétez le nouveau mot de passe</span><input class="input" id="rc-pw2" type="password"></label>
+    <p id="rc-err" style="color:var(--red);margin:0 0 12px;display:none"></p>
+    <div class="actions"><button class="btn" id="rc-ok">Réinitialiser</button><button class="btn ghost" id="rc-no">Annuler</button></div>`);
+  $('#rc-no').onclick = closeModal;
+  $('#rc-ok').onclick = async () => {
+    const err = $('#rc-err'); err.style.display = 'none';
+    if ($('#rc-pw').value !== $('#rc-pw2').value) { err.textContent = 'Les deux mots de passe sont différents.'; err.style.display = 'block'; return; }
+    try {
+      const j = await api('recover', { recovery: $('#rc-code').value, password: $('#rc-pw').value });
+      session.set(j.session); showRecovery(j.recovery, () => load());
+    } catch (e) { err.textContent = e.message === 'code_secours' || e.message === '401' ? 'Code de secours incorrect.' : e.message; err.style.display = 'block'; }
+  };
+}
+
+/** Affiche le NOUVEAU code de secours, à noter avant de continuer. */
+function showRecovery(code, then) {
+  modal(`<h2 style="margin:0 0 6px">Votre code de secours</h2>
+    <p class="muted" style="margin:0 0 14px">Gardez-le précieusement (photo, carnet, message à vous-même). Il sert si vous oubliez votre mot de passe. L'ancien code ne marche plus.</p>
+    <div class="card mono" style="font-size:24px;text-align:center;letter-spacing:2px">${esc(code)}</div>
+    <div class="actions" style="margin-top:14px"><button class="btn soft" id="sr-copy">Copier</button><button class="btn" id="sr-ok">Je l'ai noté</button></div>`);
+  $('#sr-copy').onclick = () => { navigator.clipboard.writeText(code); toast('Code copié'); };
+  $('#sr-ok').onclick = () => { closeModal(); then && then(); };
 }
 
 async function load() {
@@ -162,6 +242,7 @@ function render() {
         <button class="tab ${state.tab === 'prospects' ? 'on' : ''}" data-tab="prospects">Demandes${state.prospects.filter((p) => p.status === 'nouveau').length ? ` <span class="pill s-bloque" style="padding:1px 7px">${state.prospects.filter((p) => p.status === 'nouveau').length}</span>` : ''}</button>
         <button class="tab ${state.tab === 'settings' ? 'on' : ''}" data-tab="settings">Réglages</button>
       </div>
+      <button class="btn ghost" id="install" style="display:none">Installer l'app</button>
       <button class="btn ghost" id="logout">Déconnexion</button>
     </header>
     ${state.tab === 'clients' ? `
@@ -171,6 +252,7 @@ function render() {
       <div class="card kpi"><div class="l">Payés</div><div class="v">${count('paye')}</div></div>
       <div class="card kpi"><div class="l">Expirés</div><div class="v">${count('expire')}</div></div>
       <div class="card kpi"><div class="l">Encaissé ce mois</div><div class="v">${money(revenue)}</div></div>
+      <div class="card kpi"><div class="l">Paiements à vérifier</div><div class="v" style="color:${c.some((x) => x.claim) ? 'var(--amber)' : 'inherit'}">${c.filter((x) => x.claim).length}</div></div>
     </div>
     <div class="toolbar">
       <input class="search" id="q" placeholder="Rechercher un nom, un numéro, un code" value="${esc(state.q)}">
@@ -185,7 +267,7 @@ function render() {
           <tr class="row" data-code="${esc(x.code)}">
             <td><b>${esc(x.name)}</b><div class="muted">${esc(x.phone)}</div></td>
             <td class="mono">${esc(x.code)}</td>
-            <td><span class="pill s-${x.status}">${STATUS[x.status]}</span>${x.errorsCount ? ' <span class="pill s-bloque">⚠ ' + x.errorsCount + '</span>' : ''}</td>
+            <td><span class="pill s-${x.status}">${STATUS[x.status]}</span>${x.claim ? ' <span class="pill s-expire">💰 a payé ?</span>' : ''}${x.errorsCount ? ' <span class="pill s-bloque">⚠ ' + x.errorsCount + '</span>' : ''}</td>
             <td class="hide-sm">${fmtDate(x.expiry)}</td>
             <td class="hide-sm">${ago(x.lastSeen)}</td>
             <td class="hide-sm">${x.sends7}</td>
@@ -197,7 +279,8 @@ function render() {
   <div class="modal-bg" id="modal"><div class="modal" id="modal-body"></div></div>`;
 
   document.querySelectorAll('[data-tab]').forEach((b) => b.onclick = () => { state.tab = b.dataset.tab; render(); });
-  $('#logout').onclick = () => { sessionStorage.removeItem('ravito_pw'); renderLogin(); };
+  $('#logout').onclick = () => { session.clear(); renderLogin(); };
+  if (deferredInstall) { $('#install').style.display = ''; $('#install').onclick = async () => { deferredInstall.prompt(); deferredInstall = null; $('#install').style.display = 'none'; }; }
   if (state.tab === 'clients') {
     $('#q').oninput = (e) => { state.q = e.target.value; const pos = e.target.selectionStart; render(); const i = $('#q'); i.focus(); i.setSelectionRange(pos, pos); };
     $('#new').onclick = openCreate;
@@ -219,16 +302,45 @@ function renderSettings() {
     <label class="field"><span>Message affiché à tous les utilisateurs (laisser vide pour aucun)</span><textarea class="input" id="c-notice" rows="3">${esc(c.notice)}</textarea></label>
     <button class="btn" id="c-save">Enregistrer</button>
     <p class="muted" style="margin-top:14px">Les changements arrivent sur les téléphones à leur prochaine connexion.</p>
+  </div>
+  <div class="sec">Notifications sur cet appareil</div>
+  <div class="card" style="max-width:560px">
+    <p class="muted" style="margin:0 0 12px" id="n-state">…</p>
+    <div class="actions"><button class="btn" id="n-on">Activer les notifications</button><button class="btn ghost" id="n-test">Envoyer un test</button></div>
+    <p class="muted" style="margin:12px 0 0">Nouvelles demandes, activations, « J'ai payé », fins d'essai, et un point chaque matin à 7 h. À activer sur chaque appareil (téléphone, PC).</p>
+  </div>
+  <div class="sec">Mot de passe</div>
+  <div class="card" style="max-width:560px">
+    <label class="field"><span>Nouveau mot de passe (8 caractères minimum)</span><input class="input" id="p-new" type="password"></label>
+    <label class="field"><span>Répétez le nouveau mot de passe</span><input class="input" id="p-new2" type="password"></label>
+    <div class="actions"><button class="btn" id="p-save">Changer le mot de passe</button><button class="btn ghost" id="p-rec">Générer un nouveau code de secours</button></div>
   </div>`;
 }
 
 function bindSettings() {
+  pushStatus();
+  $('#n-on').onclick = enablePush;
+  $('#n-test').onclick = async () => { try { const j = await api('test_push', {}); toast(j.sent ? `Notification envoyée à ${j.sent} appareil(s)` : 'Aucun appareil abonné'); } catch (e) { toast('Erreur : ' + e.message); } };
+  $('#p-save').onclick = async () => {
+    if ($('#p-new').value.length < 8) return toast('8 caractères minimum');
+    if ($('#p-new').value !== $('#p-new2').value) return toast('Les deux mots de passe sont différents');
+    try {
+      const j = await sensitive('set_password', { password: $('#p-new').value }, 'Changer le mot de passe', 'Entrez votre mot de passe ACTUEL.');
+      if (j) { session.set(j.session); showRecovery(j.recovery); }
+    } catch (e) { toast('Erreur : ' + e.message); }
+  };
+  $('#p-rec').onclick = async () => {
+    const cur = await askPassword('Nouveau code de secours', 'Votre mot de passe actuel est conservé ; seul le code de secours change.');
+    if (!cur) return;
+    try { const j = await api('set_password', { confirm: cur, password: cur }); session.set(j.session); showRecovery(j.recovery); } catch (e) { toast('Erreur : ' + e.message); }
+  };
   $('#c-save').onclick = async () => {
     try {
-      const j = await api('config', {
+      const j = await sensitive('config', {
         priceFcfa: $('#c-price').value, omNumber: $('#c-om').value, trialDays: $('#c-trial').value,
         graceDays: $('#c-grace').value, checkDays: $('#c-check').value, notice: $('#c-notice').value,
-      });
+      }, 'Enregistrer les réglages');
+      if (!j) return;
       state.config = j.config; toast('Réglages enregistrés');
     } catch (e) { toast('Erreur : ' + e.message); }
   };
@@ -309,12 +421,17 @@ function renderDetail() {
       <div class="kv"><span>Activé le</span><span>${fmtDate(x.activatedAt)}</span></div>
       <div class="kv"><span>Fin de l'essai</span><span>${x.trialEnd ? fmtDate(x.trialEnd) : (x.trialDays ? x.trialDays + ' jours après activation' : '—')}</span></div>
       <div class="kv"><span>Payé jusqu'au</span><span>${fmtDate(x.paidUntil)}</span></div>
-      <div class="kv"><span>Paiements</span><span>${x.payments.length ? x.payments.map((p) => `${fmtDate(p.at)} : ${money(p.amount)}`).join('<br>') : '—'}</span></div>
-      <div class="actions" style="margin-top:14px">
-        <button class="btn" data-act="pay1">Payé : +1 mois (${money(state.config.priceFcfa)})</button>
-        <button class="btn soft" data-act="pay3">+3 mois</button>
-        <button class="btn soft" data-act="trial7">Prolonger l'essai de 7 jours</button>
-      </div>
+      <div class="kv"><span>Paiements</span><span>${x.payments.length ? x.payments.map((p) => `${fmtDate(p.at)} : ${money(p.amount)} (${p.months || 1} mois)`).join('<br>') : '—'}</span></div>
+    </div>
+    <div class="sec">Enregistrer un paiement</div>
+    <div class="card">
+      ${x.claim ? `<div class="claim"><b>💰 ${esc(x.name)} dit avoir payé ${money(x.claim.amount)} (${x.claim.months} mois)</b><div class="muted">le ${fmtDateTime(x.claim.at)} · vérifiez votre Orange Money</div>
+        <div class="actions" style="margin-top:10px"><button class="btn" id="cl-ok">Valider ${x.claim.months} mois</button><button class="btn ghost" id="cl-no">Ignorer</button></div></div>` : ''}
+      <div class="muted">Durée payée</div>
+      <div class="chips">${[1, 2, 3, 4, 6, 8, 12].map((m) => `<button class="chip ${m === 1 ? 'on' : ''}" data-months="${m}">${m === 12 ? '1 an' : m + ' mois'}</button>`).join('')}</div>
+      <label class="field"><span>Montant reçu (F CFA)</span><input class="input" id="pay-amount" type="number" value="${state.config.priceFcfa}"></label>
+      <p class="muted" id="pay-preview" style="margin:-4px 0 12px"></p>
+      <div class="actions"><button class="btn" id="pay-ok">Valider le paiement</button><button class="btn soft" data-act="trial7">Prolonger l'essai de 7 jours</button></div>
     </div>
 
     <div class="sec">Relancer</div>
@@ -366,22 +483,59 @@ function renderDetail() {
     <div class="card actions">
       <button class="btn danger" data-act="block">${x.blocked ? 'Débloquer' : 'Bloquer l\'accès'}</button>
       <button class="btn ghost" data-act="transfer" ${x.hasDevice ? '' : 'disabled'}>Transférer vers un nouveau téléphone</button>
+      <button class="btn ghost" data-act="pin">Réinitialiser son code PIN</button>
       <button class="btn danger" data-act="delete">Supprimer le client</button>
-    </div>`;
+    </div>
+    ${x.pinReset ? `<div class="card" style="margin-top:10px"><div class="muted">Code de réinitialisation du PIN, valable jusqu'au ${fmtDateTime(x.pinReset.exp)} :</div><div class="mono" style="font-size:22px;letter-spacing:3px;margin:6px 0">${esc(x.pinReset.code)}</div></div>` : ''}`;
 
   $('#d-close').onclick = closeDetail;
   const refresh = async () => { await openDetail(x.code); load(); };
   const act = async (action, data, msg) => {
     try { await api(action, { code: x.code, ...data }); toast(msg); await refresh(); } catch (e) { toast('Erreur : ' + e.message); }
   };
-  document.querySelectorAll('[data-act]').forEach((b) => b.onclick = () => {
+  // Actions sensibles : mot de passe demandé à chaque fois.
+  const secure = async (action, data, title, detail, msg) => {
+    try { const j = await sensitive(action, { code: x.code, ...data }, title, detail); if (j) { toast(msg); await refresh(); } return j; }
+    catch (e) { toast('Erreur : ' + e.message); return null; }
+  };
+  let months = 1;
+  const preview = () => {
+    const base = Math.max(Date.now(), x.expiry || Date.now());
+    const d = new Date(base); d.setMonth(d.getMonth() + months);
+    $('#pay-preview').textContent = `Accès jusqu'au ${fmtDate(d.getTime())}.`;
+  };
+  document.querySelectorAll('[data-months]').forEach((c) => c.onclick = () => {
+    months = Number(c.dataset.months);
+    document.querySelectorAll('[data-months]').forEach((o) => o.classList.toggle('on', o === c));
+    $('#pay-amount').value = state.config.priceFcfa * months; preview();
+  });
+  preview();
+  $('#pay-ok').onclick = () => {
+    const amount = Number($('#pay-amount').value) || state.config.priceFcfa * months;
+    secure('pay', { months, amount }, `Paiement de ${money(amount)}`, `${x.name} · ${months === 12 ? '1 an' : months + ' mois'}`, 'Paiement enregistré');
+  };
+  if ($('#cl-ok')) $('#cl-ok').onclick = () => secure('pay', { months: x.claim.months, amount: x.claim.amount }, `Valider ${money(x.claim.amount)}`, `${x.name} · ${x.claim.months} mois · vérifiez d'abord votre Orange Money`, 'Paiement validé : son appli se débloque à sa prochaine connexion');
+  if ($('#cl-no')) $('#cl-no').onclick = () => act('claim_dismiss', {}, 'Déclaration ignorée');
+  document.querySelectorAll('[data-act]').forEach((b) => b.onclick = async () => {
     const a = b.dataset.act;
-    if (a === 'pay1') return confirm(`Enregistrer un paiement de ${money(state.config.priceFcfa)} pour ${x.name} ?`) && act('pay', { months: 1 }, 'Abonnement prolongé d\'un mois');
-    if (a === 'pay3') return confirm(`Enregistrer 3 mois (${money(state.config.priceFcfa * 3)}) pour ${x.name} ?`) && act('pay', { months: 3 }, 'Abonnement prolongé de 3 mois');
-    if (a === 'trial7') return act('trial', { days: 7 }, 'Essai prolongé de 7 jours');
-    if (a === 'block') return confirm(x.blocked ? 'Débloquer ce client ?' : 'Bloquer l\'accès de ce client ?') && act('block', { blocked: !x.blocked }, x.blocked ? 'Client débloqué' : 'Client bloqué');
-    if (a === 'delete') return confirm(`Supprimer définitivement ${x.name} ? Son application sera bloquée.`) && api('delete', { code: x.code }).then(() => { toast('Client supprimé'); closeDetail(); load(); }).catch((e) => toast('Erreur : ' + e.message));
-    if (a === 'transfer') return confirm('Libérer ce code ? L\'ancien téléphone sera bloqué à sa prochaine connexion, et le code pourra être entré sur un nouveau téléphone.') && act('transfer', {}, 'Code libéré');
+    if (a === 'trial7') return secure('trial', { days: 7 }, 'Prolonger l\'essai de 7 jours', x.name, 'Essai prolongé de 7 jours');
+    if (a === 'block') return secure('block', { blocked: !x.blocked }, x.blocked ? 'Débloquer ce client' : 'Bloquer l\'accès', x.name, x.blocked ? 'Client débloqué' : 'Client bloqué');
+    if (a === 'transfer') return secure('transfer', {}, 'Transférer vers un nouveau téléphone', 'L\'ancien téléphone sera bloqué ; le code pourra être entré sur un nouveau téléphone.', 'Code libéré');
+    if (a === 'delete') {
+      const j = await secure('delete', {}, `Supprimer ${x.name}`, 'Définitif : son application sera bloquée.', 'Client supprimé');
+      if (j) closeDetail();
+      return;
+    }
+    if (a === 'pin') {
+      const j = await secure('pin_reset', {}, 'Réinitialiser son code PIN', 'Un code à 6 chiffres valable 24 h sera créé.', 'Code créé');
+      if (j?.resetCode) {
+        const msg = `Bonjour ${x.name},\n\nVous avez oublié votre code PIN Ravito ? Sur l'écran du code, appuyez sur « Code PIN oublié ? » et entrez ce code : ${j.resetCode}\n\nIl est valable 24 heures. Vous choisirez ensuite un nouveau code PIN ; vos données sont conservées.`;
+        modal(`<h2 style="margin:0 0 8px">Code de réinitialisation</h2><div class="mono" style="font-size:28px;letter-spacing:4px;text-align:center;margin:8px 0 14px">${esc(j.resetCode)}</div>
+          <div class="card mono" style="white-space:pre-wrap;font-size:13px">${esc(msg)}</div>
+          <div class="actions" style="margin-top:14px">${x.phone ? `<a class="btn" target="_blank" href="${esc(waLink(x.phone, msg))}" style="text-decoration:none">Envoyer sur WhatsApp</a>` : ''}<button class="btn ghost" id="m-close">Fermer</button></div>`);
+        $('#m-close').onclick = closeModal;
+      }
+    }
   });
   document.querySelectorAll('[data-flag]').forEach((cb) => cb.onchange = () => {
     const flags = { ...x.flags }; flags[cb.dataset.flag] = cb.checked;
@@ -466,7 +620,48 @@ function bindProspects() {
   document.querySelectorAll('[data-open]').forEach((b) => b.onclick = () => openDetail(b.dataset.open));
 }
 
-if (sessionStorage.getItem('ravito_pw')) load(); else renderLogin();
+// ---------- App installable + notifications
+let deferredInstall = null;
+addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredInstall = e; const b = $('#install'); if (b) { b.style.display = ''; b.onclick = () => { e.prompt(); deferredInstall = null; b.style.display = 'none'; }; } });
+let swReg = null;
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/admin/sw.js', { scope: '/admin/' }).then((r) => { swReg = r; }).catch(() => {});
+  navigator.serviceWorker.addEventListener('message', (e) => { if (e.data?.type === 'open') { history.replaceState(null, '', e.data.url); routeFromUrl(); } });
+}
+const b64ToBytes = (s) => { const p = '='.repeat((4 - s.length % 4) % 4); const raw = atob((s + p).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from([...raw].map((c) => c.charCodeAt(0))); };
+
+async function pushStatus() {
+  const el = $('#n-state'); if (!el) return;
+  if (!('Notification' in window) || !('PushManager' in window)) { el.textContent = 'Ce navigateur ne gère pas les notifications. Sur Android, utilisez Chrome.'; return; }
+  const reg = swReg || await navigator.serviceWorker.ready;
+  const sub = await reg.pushManager.getSubscription();
+  el.textContent = Notification.permission === 'denied' ? 'Notifications bloquées dans le navigateur : autorisez-les dans les réglages du site.'
+    : sub ? '✅ Notifications activées sur cet appareil.' : 'Notifications non activées sur cet appareil.';
+}
+
+async function enablePush() {
+  try {
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') { toast('Notifications refusées'); return pushStatus(); }
+    const { key } = await api('vapid');
+    if (!key) { toast('Notifications pas encore configurées sur le serveur'); return; }
+    const reg = swReg || await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(key) });
+    await api('subscribe', { subscription: sub.toJSON(), label: navigator.userAgent.slice(0, 80) });
+    toast('Notifications activées'); pushStatus();
+  } catch (e) { toast('Erreur : ' + e.message); }
+}
+
+/** Ouvre l'écran demandé par une notification : ?code=XXX ou ?tab=prospects */
+function routeFromUrl() {
+  const q = new URLSearchParams(location.search);
+  if (q.get('tab')) { state.tab = q.get('tab'); render(); }
+  if (q.get('code')) openDetail(q.get('code'));
+  if (q.get('tab') || q.get('code')) history.replaceState(null, '', '/admin/');
+}
+
+if (session.get() && Date.now() - Number(localStorage.getItem('ravito_seen') || 0) < LOCK_MS) load().then(routeFromUrl);
+else { session.clear(); renderLogin(); }
 </script>
 </body>
 </html>

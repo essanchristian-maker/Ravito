@@ -3,6 +3,7 @@
 import crypto from 'node:crypto';
 import { writeJson } from '../lib/store.js';
 import { body, send } from '../lib/core.js';
+import { notify } from '../lib/push.js';
 
 const clean = (v, max = 120) => String(v ?? '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, max);
 
@@ -39,5 +40,6 @@ export default async function handler(req, res) {
     consentAt: now,
   }, { overwrite: false });
 
+  await notify(`🆕 Nouvelle demande : ${firstName} ${lastName}`, [clean(b.city, 60), clean(b.activity, 60), whatsapp].filter(Boolean).join(' · '), '/admin/?tab=prospects');
   return send(res, 200, { ok: true });
 }

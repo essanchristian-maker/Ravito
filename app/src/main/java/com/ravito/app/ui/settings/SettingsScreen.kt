@@ -96,6 +96,7 @@ fun SettingsScreen(onOpenMerchants: () -> Unit, onOpenTemplate: () -> Unit, onOp
     var pickTime by remember { mutableStateOf<String?>(null) }
     var changePin by remember { mutableStateOf(false) }
     var rereadDialog by remember { mutableStateOf(false) }
+    var payDialog by remember { mutableStateOf(false) }
 
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
         if (uri != null) {
@@ -232,9 +233,10 @@ fun SettingsScreen(onOpenMerchants: () -> Unit, onOpenTemplate: () -> Unit, onOp
                     "Code ${app.license.code ?: "—"}",
                     l?.let {
                         (if (it.isTrial) "Essai gratuit jusqu'au " else "Abonnement payé jusqu'au ") + fmt.format(java.util.Date(it.expiresAt)) +
-                            " · ${com.ravito.app.domain.Formats.amount(it.priceFcfa)} / mois par Orange Money au ${it.omNumber}"
+                            " · ${com.ravito.app.domain.Formats.amount(it.priceFcfa)} / mois · Touchez pour payer (1 mois à 1 an)"
                     } ?: "—",
-                ) { scope.launch { if (app.checkinNow()) ctx.toast("Abonnement vérifié") else ctx.toast("Pas de connexion Internet") } }
+                ) { if (l != null) payDialog = true else scope.launch { if (app.checkinNow()) ctx.toast("Abonnement vérifié") else ctx.toast("Pas de connexion Internet") } }
+                if (payDialog && l != null) com.ravito.app.ui.license.PaymentDialog(l) { payDialog = false }
                 SettingRow(
                     "Version ${com.ravito.app.BuildConfig.VERSION_NAME}",
                     if (app.updater.isNewer(latest)) "Nouvelle version ${latest!!.versionName} disponible : voir l'accueil" else "Vous avez la dernière version",
