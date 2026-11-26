@@ -9,6 +9,10 @@
 //   POST ?action=transfer {code}                  libérer le code pour un nouveau téléphone
 //   POST ?action=update   {code, name, phone, note, flags}
 //   POST ?action=delete   {code}                  supprimer le client (le téléphone sera bloqué)
+//   GET  ?action=prospects                         demandes reçues par la page /inscription/
+//   POST ?action=prospect {id, status, note}        suivi d'une demande (nouveau, contacte, refuse)
+//   POST ?action=convert  {id, trialDays}           créer l'accès (code) d'une demande
+//   POST ?action=prospect_delete {id}
 //   POST ?action=config   {priceFcfa, omNumber, trialDays, checkDays, graceDays, notice}
 import crypto from 'node:crypto';
 import { listPathnames, readJson, remove, writeJson } from '../lib/store.js';
@@ -35,6 +39,10 @@ function summary(client, st, cfg) {
     code: client.code,
     name: client.name,
     phone: client.phone,
+    email: client.email || '',
+    city: client.city || '',
+    activity: client.activity || '',
+    prospectId: client.prospectId || null,
     note: client.note || '',
     createdAt: client.createdAt,
     activatedAt: client.activatedAt || null,
@@ -98,6 +106,46 @@ export default async function handler(req, res) {
 
     if (action === 'config' && req.method === 'GET') return send(res, 200, { config: cfg });
 
+    if (action === 'prospects') {
+      const paths = (await listPathnames('prospects/')).filter((p) => p.endsWith('.json'));
+      const rows = (await Promise.all(paths.map((p) => readJson(p).catch(() => null)))).filter(Boolean);
+      return send(res, 200, { prospects: rows.sort((a, b2) => b2.createdAt - a.createdAt) });
+    }
+
+    if (req.method === 'POST' && ['prospect', 'convert', 'prospect_delete'].includes(action)) {
+      const id = String(b.id || '').replace(/[^\w-]/g, '');
+      const path = `prospects/${id}.json`;
+      const pr = id ? await readJson(path) : null;
+      if (!pr) return send(res, 404, { error: 'introuvable' });
+      if (action === 'prospect_delete') { await remove(path); return send(res, 200, { deleted: id }); }
+      if (action === 'prospect') {
+        if (['nouveau', 'contacte', 'refuse'].includes(b.status)) pr.status = b.status;
+        if (typeof b.note === 'string') pr.note = b.note.slice(0, 500);
+        await writeJson(path, pr);
+        return send(res, 200, { prospect: pr });
+      }
+      // convert : crée le client (code d'invitation) relié à la demande
+      if (pr.code) {
+        const existing = await readJson(`clients/${pr.code}.json`);
+        if (existing) return send(res, 200, { client: summary(existing, null, cfg), prospect: pr });
+      }
+      const name = `${pr.firstName} ${pr.lastName}`.trim();
+      let code;
+      for (let i = 0; i < 10; i++) {
+        code = makeCode(pr.firstName || name);
+        if (!(await readJson(`clients/${code}.json`))) break;
+      }
+      const client = {
+        code, name, phone: pr.whatsapp, email: pr.email || '', city: pr.city || '', activity: pr.activity || '',
+        prospectId: pr.id, note: pr.message || '',
+        trialDays: Math.max(1, Number(b.trialDays) || cfg.trialDays), createdAt: Date.now(), flags: {}, payments: [],
+      };
+      await writeJson(`clients/${code}.json`, client, { overwrite: false });
+      pr.status = 'converti'; pr.code = code; pr.convertedAt = Date.now();
+      await writeJson(path, pr);
+      return send(res, 200, { client: summary(client, null, cfg), prospect: pr });
+    }
+
     if (req.method !== 'POST') return send(res, 405, { error: 'methode' });
 
     if (action === 'config') {
@@ -122,6 +170,7 @@ export default async function handler(req, res) {
         code,
         name,
         phone: String(b.phone || '').trim().slice(0, 30),
+        email: String(b.email || '').trim().toLowerCase().slice(0, 120),
         note: String(b.note || '').slice(0, 500),
         trialDays: Math.max(1, Number(b.trialDays) || cfg.trialDays),
         createdAt: Date.now(),
@@ -160,6 +209,7 @@ export default async function handler(req, res) {
     } else if (action === 'update') {
       if (typeof b.name === 'string' && b.name.trim()) client.name = b.name.trim().slice(0, 80);
       if (typeof b.phone === 'string') client.phone = b.phone.trim().slice(0, 30);
+      if (typeof b.email === 'string') client.email = b.email.trim().toLowerCase().slice(0, 120);
       if (typeof b.note === 'string') client.note = b.note.slice(0, 500);
       if (b.flags && typeof b.flags === 'object') {
         client.flags = Object.fromEntries(Object.entries(b.flags).map(([k, v]) => [k.slice(0, 30), !!v]));

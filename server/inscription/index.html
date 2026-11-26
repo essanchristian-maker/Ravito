@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ravito · Inscription</title>
+<meta name="description" content="Ravito prépare tout seul votre rapport du soir à partir des SMS mobile money. Inscrivez-vous pour l'essai gratuit.">
+<meta property="og:title" content="Ravito · Votre rapport du soir, tout seul">
+<meta property="og:description" content="Inscrivez-vous : 14 jours d'essai gratuit.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --green: #0B8A5A; --green-soft: #E3F5EC; --ink: #101418; --ink-soft: #6E7781; --canvas: #F2F3F6; --line: #E6E8EC; --red: #D93025; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: Inter, system-ui, sans-serif; background: var(--canvas); color: var(--ink); font-size: 16px; }
+  .wrap { max-width: 520px; margin: 0 auto; padding: 28px 18px 48px; }
+  .hero { background: var(--green); color: #fff; border-radius: 28px; padding: 28px 24px; margin-bottom: 18px; }
+  .hero h1 { margin: 0 0 8px; font-size: 30px; letter-spacing: -0.8px; }
+  .hero p { margin: 0; opacity: .9; line-height: 1.45; }
+  .points { display: grid; gap: 8px; margin: 18px 0 0; padding: 0; list-style: none; }
+  .points li { background: rgba(255,255,255,.14); border-radius: 14px; padding: 10px 14px; font-size: 15px; }
+  .card { background: #fff; border-radius: 24px; padding: 22px 20px; }
+  h2 { margin: 0 0 16px; font-size: 21px; letter-spacing: -0.3px; }
+  label.f { display: block; margin-bottom: 14px; }
+  label.f span { display: block; font-size: 14px; color: var(--ink-soft); margin-bottom: 6px; }
+  .in { width: 100%; border: 1px solid var(--line); border-radius: 14px; padding: 13px 14px; font: inherit; outline: none; background: #fff; }
+  .in:focus { border-color: var(--green); }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .ops { display: flex; flex-wrap: wrap; gap: 8px; }
+  .op { border: 1px solid var(--line); border-radius: 999px; padding: 9px 14px; cursor: pointer; user-select: none; font-size: 15px; }
+  .op input { display: none; }
+  .op.on { background: var(--green); color: #fff; border-color: var(--green); }
+  .consent { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; color: var(--ink-soft); line-height: 1.4; margin: 6px 0 18px; cursor: pointer; }
+  .consent input { margin-top: 3px; width: 18px; height: 18px; accent-color: var(--green); }
+  .btn { width: 100%; border: 0; border-radius: 999px; padding: 15px; font: inherit; font-weight: 600; background: var(--green); color: #fff; cursor: pointer; }
+  .btn:disabled { opacity: .6; }
+  .err { color: var(--red); margin: 0 0 12px; display: none; }
+  .hp { position: absolute; left: -5000px; }
+  .ok { text-align: center; padding: 30px 10px; display: none; }
+  .ok .tick { width: 72px; height: 72px; border-radius: 50%; background: var(--green-soft); color: var(--green); font-size: 38px; display: flex; align-items: center; justify-content: center; margin: 0 auto 14px; }
+  .foot { text-align: center; color: var(--ink-soft); font-size: 13px; margin-top: 18px; line-height: 1.5; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hero">
+    <h1>Ravito</h1>
+    <p>Votre rapport du soir se prépare tout seul, à partir des SMS de vos envois Orange Money, MTN, Moov et Wave.</p>
+    <ul class="points">
+      <li>✓ Cabines, agents Mobile Money, UV reçues : tout est classé</li>
+      <li>✓ Rapport prêt à partager sur WhatsApp en un geste</li>
+      <li>✓ 14 jours d'essai gratuit, puis 5 000 F par mois</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <form id="form" novalidate>
+      <h2>Je m'inscris</h2>
+      <div class="row">
+        <label class="f"><span>Prénom</span><input class="in" name="firstName" autocomplete="given-name" required></label>
+        <label class="f"><span>Nom</span><input class="in" name="lastName" autocomplete="family-name" required></label>
+      </div>
+      <label class="f"><span>Numéro WhatsApp</span><input class="in" name="whatsapp" type="tel" inputmode="tel" placeholder="07 00 00 00 00" autocomplete="tel" required></label>
+      <label class="f"><span>Adresse e-mail (facultatif)</span><input class="in" name="email" type="email" inputmode="email" autocomplete="email"></label>
+      <div class="row">
+        <label class="f"><span>Ville / commune</span><input class="in" name="city" placeholder="ex. Yopougon"></label>
+        <label class="f"><span>Activité</span>
+          <select class="in" name="activity">
+            <option value="">Choisir</option>
+            <option>Ravitailleur</option>
+            <option>Agent Mobile Money</option>
+            <option>Gérant de cabines</option>
+            <option>Autre</option>
+          </select>
+        </label>
+      </div>
+      <label class="f"><span>Opérateurs utilisés</span></label>
+      <div class="ops" style="margin:-6px 0 16px">
+        <label class="op"><input type="checkbox" name="op" value="Orange">Orange Money</label>
+        <label class="op"><input type="checkbox" name="op" value="MTN">MTN MoMo</label>
+        <label class="op"><input type="checkbox" name="op" value="Moov">Moov Money</label>
+        <label class="op"><input type="checkbox" name="op" value="Wave">Wave</label>
+      </div>
+      <label class="f"><span>Un message ? (facultatif)</span><textarea class="in" name="message" rows="2"></textarea></label>
+      <input class="hp" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+      <label class="consent"><input type="checkbox" name="consent">J'accepte d'être contacté par WhatsApp, téléphone ou e-mail au sujet de Ravito. Mes informations servent uniquement à mon inscription et à mon suivi ; elles ne sont ni vendues ni partagées.</label>
+      <p class="err" id="err"></p>
+      <button class="btn" id="send" type="submit">Envoyer mon inscription</button>
+    </form>
+    <div class="ok" id="ok">
+      <div class="tick">✓</div>
+      <h2 style="margin-bottom:8px">Inscription reçue</h2>
+      <p style="color:var(--ink-soft);margin:0">Merci ! Nous vous contactons très vite sur WhatsApp avec votre lien d'installation et votre code personnel.</p>
+    </div>
+  </div>
+  <p class="foot">Ravito lit uniquement les SMS de vos opérateurs mobile money, sur votre téléphone. Vos transactions ne quittent jamais votre téléphone.</p>
+</div>
+<script>
+const t0 = Date.now();
+document.querySelectorAll('.op input').forEach((c) => c.onchange = () => c.parentElement.classList.toggle('on', c.checked));
+document.getElementById('form').onsubmit = async (e) => {
+  e.preventDefault();
+  const f = e.target, err = document.getElementById('err'), btn = document.getElementById('send');
+  const data = {
+    firstName: f.firstName.value, lastName: f.lastName.value, whatsapp: f.whatsapp.value, email: f.email.value,
+    city: f.city.value, activity: f.activity.value, message: f.message.value, website: f.website.value,
+    operators: [...f.querySelectorAll('input[name=op]:checked')].map((c) => c.value),
+    consent: f.consent.checked, t: t0,
+  };
+  err.style.display = 'none'; btn.disabled = true; btn.textContent = 'Envoi…';
+  try {
+    const r = await fetch('/api/signup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || 'Envoi impossible, réessayez.');
+    f.style.display = 'none'; document.getElementById('ok').style.display = 'block';
+  } catch (x) {
+    err.textContent = x.message; err.style.display = 'block'; btn.disabled = false; btn.textContent = 'Envoyer mon inscription';
+  }
+};
+</script>
+</body>
+</html>

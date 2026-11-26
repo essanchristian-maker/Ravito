@@ -99,7 +99,12 @@ const FLAGS = [
   ['export', 'Export Excel / CSV'],
   ['edit_report', 'Modifier le texte du rapport'],
 ];
-const state = { tab: 'clients', clients: [], config: null, q: '', detail: null };
+const state = { tab: 'clients', clients: [], prospects: [], config: null, q: '', detail: null, relance: false };
+const SIGNUP_URL = location.origin + '/inscription/';
+const PSTATUS = { nouveau: 'Nouveau', contacte: 'Contacté', converti: 'Accès créé', refuse: 'Refusé' };
+const DAYMS = 864e5;
+/** Client à relancer : essai ou abonnement qui finit dans 3 jours ou moins, ou déjà expiré. */
+const needsFollowUp = (x) => x.status === 'expire' || ((x.status === 'essai' || x.status === 'paye') && x.expiry && x.expiry - Date.now() < 3 * DAYMS);
 
 function toast(msg) { const t = $('#toast'); t.textContent = msg; t.style.display = 'block'; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = 'none', 2600); }
 
@@ -133,8 +138,8 @@ function renderLogin(err = '') {
 
 async function load() {
   try {
-    const j = await api('list');
-    state.clients = j.clients; state.config = j.config;
+    const [j, p] = await Promise.all([api('list'), api('prospects')]);
+    state.clients = j.clients; state.config = j.config; state.prospects = p.prospects;
     render();
   } catch (e) { if (e.message !== '401') toast('Erreur : ' + e.message); }
 }
@@ -145,7 +150,8 @@ function render() {
   const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
   const revenue = c.flatMap((x) => x.payments).filter((p) => p.at >= monthStart.getTime()).reduce((t, p) => t + (p.amount || 0), 0);
   const q = state.q.trim().toLowerCase();
-  const rows = c.filter((x) => !q || [x.name, x.phone, x.code].some((v) => String(v || '').toLowerCase().includes(q)));
+  const rows = c.filter((x) => (!state.relance || needsFollowUp(x)) && (!q || [x.name, x.phone, x.code, x.email].some((v) => String(v || '').toLowerCase().includes(q))));
+  const toFollow = c.filter(needsFollowUp).length;
 
   $('#app').innerHTML = `
   <div class="wrap">
@@ -153,6 +159,7 @@ function render() {
       <h1>Ravito</h1>
       <div class="tabs">
         <button class="tab ${state.tab === 'clients' ? 'on' : ''}" data-tab="clients">Clients</button>
+        <button class="tab ${state.tab === 'prospects' ? 'on' : ''}" data-tab="prospects">Demandes${state.prospects.filter((p) => p.status === 'nouveau').length ? ` <span class="pill s-bloque" style="padding:1px 7px">${state.prospects.filter((p) => p.status === 'nouveau').length}</span>` : ''}</button>
         <button class="tab ${state.tab === 'settings' ? 'on' : ''}" data-tab="settings">Réglages</button>
       </div>
       <button class="btn ghost" id="logout">Déconnexion</button>
@@ -167,6 +174,7 @@ function render() {
     </div>
     <div class="toolbar">
       <input class="search" id="q" placeholder="Rechercher un nom, un numéro, un code" value="${esc(state.q)}">
+      <button class="btn ${state.relance ? '' : 'ghost'}" id="relance">À relancer (${toFollow})</button>
       <button class="btn" id="new">+ Nouveau client</button>
       <button class="btn ghost" id="refresh">Actualiser</button>
     </div>
@@ -183,7 +191,7 @@ function render() {
             <td class="hide-sm">${x.sends7}</td>
             <td class="hide-sm muted">${esc(x.versionName || '—')}</td>
           </tr>`).join('')}</tbody></table>` : `<div class="empty">Aucun client. Créez le premier avec « Nouveau client ».</div>`}
-    </div>` : renderSettings()}
+    </div>` : state.tab === 'prospects' ? renderProspects() : renderSettings()}
   </div>
   <div id="drawer"><div class="drawer-bg"></div><div class="drawer" id="drawer-body"></div></div>
   <div class="modal-bg" id="modal"><div class="modal" id="modal-body"></div></div>`;
@@ -193,9 +201,10 @@ function render() {
   if (state.tab === 'clients') {
     $('#q').oninput = (e) => { state.q = e.target.value; const pos = e.target.selectionStart; render(); const i = $('#q'); i.focus(); i.setSelectionRange(pos, pos); };
     $('#new').onclick = openCreate;
+    $('#relance').onclick = () => { state.relance = !state.relance; render(); };
     $('#refresh').onclick = load;
     document.querySelectorAll('tr.row').forEach((tr) => tr.onclick = () => openDetail(tr.dataset.code));
-  } else bindSettings();
+  } else if (state.tab === 'prospects') bindProspects(); else bindSettings();
   $('.drawer-bg').onclick = closeDetail;
 }
 
@@ -242,6 +251,7 @@ function openCreate() {
   modal(`<h2 style="margin:0 0 16px">Nouveau client</h2>
     <label class="field"><span>Nom</span><input class="input" id="n-name" placeholder="ex. Koffi Yao"></label>
     <label class="field"><span>Téléphone (WhatsApp)</span><input class="input" id="n-phone" placeholder="07 00 00 00 00"></label>
+    <label class="field"><span>E-mail (facultatif)</span><input class="input" id="n-email" type="email"></label>
     <label class="field"><span>Essai gratuit (jours)</span><input class="input" id="n-trial" type="number" value="${esc(state.config.trialDays)}"></label>
     <label class="field"><span>Note (facultatif)</span><input class="input" id="n-note"></label>
     <div class="actions"><button class="btn" id="n-ok">Créer le code</button><button class="btn ghost" id="n-cancel">Annuler</button></div>`);
@@ -249,8 +259,15 @@ function openCreate() {
   $('#n-ok').onclick = async () => {
     $('#n-ok').disabled = true;
     try {
-      const j = await api('create', { name: $('#n-name').value, phone: $('#n-phone').value, trialDays: $('#n-trial').value, note: $('#n-note').value });
-      const x = j.client; const msg = inviteMessage(x);
+      const j = await api('create', { name: $('#n-name').value, phone: $('#n-phone').value, email: $('#n-email').value, trialDays: $('#n-trial').value, note: $('#n-note').value });
+      showInvite(j.client);
+      load();
+    } catch (e) { toast('Erreur : ' + e.message); $('#n-ok').disabled = false; }
+  };
+}
+
+function showInvite(x) {
+      const msg = inviteMessage(x);
       modal(`<h2 style="margin:0 0 8px">Code créé</h2>
         <p class="muted" style="margin:0 0 12px">Envoyez ce message à ${esc(x.name)} :</p>
         <div class="card mono" style="white-space:pre-wrap;font-size:13px">${esc(msg)}</div>
@@ -260,9 +277,6 @@ function openCreate() {
         </div>`);
       $('#m-copy').onclick = () => { navigator.clipboard.writeText(msg); toast('Message copié'); };
       $('#m-close').onclick = closeModal;
-      load();
-    } catch (e) { toast('Erreur : ' + e.message); $('#n-ok').disabled = false; }
-  };
 }
 
 function closeDetail() { $('#drawer').classList.remove('open'); state.detail = null; }
@@ -303,6 +317,16 @@ function renderDetail() {
       </div>
     </div>
 
+    <div class="sec">Relancer</div>
+    <div class="card">
+      <div class="mono" style="white-space:pre-wrap;font-size:13px;margin-bottom:12px">${esc(followUpMessage(x))}</div>
+      <div class="actions">
+        ${x.phone ? '<button class="btn" id="r-wa">WhatsApp</button>' : ''}
+        ${x.email ? '<button class="btn soft" id="r-mail">E-mail</button>' : ''}
+        <button class="btn ghost" id="r-copy">Copier</button>
+      </div>
+    </div>
+
     <div class="sec">Utilisation (14 derniers jours)</div>
     <div class="card">
       <div class="bars">${vals.map((v, i) => `<div class="bar" title="${days[i]} : ${v} envois"><i style="height:${Math.round(v / max * 100)}%"></i></div>`).join('')}</div>
@@ -331,7 +355,9 @@ function renderDetail() {
     <div class="sec">Fiche</div>
     <div class="card">
       <label class="field"><span>Nom</span><input class="input" id="e-name" value="${esc(x.name)}"></label>
-      <label class="field"><span>Téléphone</span><input class="input" id="e-phone" value="${esc(x.phone)}"></label>
+      <label class="field"><span>Téléphone (WhatsApp)</span><input class="input" id="e-phone" value="${esc(x.phone)}"></label>
+      <label class="field"><span>E-mail</span><input class="input" id="e-email" type="email" value="${esc(x.email)}"></label>
+      ${x.city || x.activity ? `<p class="muted" style="margin:-4px 0 12px">${esc([x.city, x.activity].filter(Boolean).join(' · '))}${x.prospectId ? ' · inscrit via le lien' : ''}</p>` : ''}
       <label class="field"><span>Note</span><textarea class="input" id="e-note" rows="2">${esc(x.note)}</textarea></label>
       <div class="actions"><button class="btn soft" id="e-save">Enregistrer</button><button class="btn ghost" id="e-msg">Renvoyer le message d'invitation</button></div>
     </div>
@@ -361,7 +387,11 @@ function renderDetail() {
     const flags = { ...x.flags }; flags[cb.dataset.flag] = cb.checked;
     act('update', { flags }, 'Fonctions mises à jour');
   });
-  $('#e-save').onclick = () => act('update', { name: $('#e-name').value, phone: $('#e-phone').value, note: $('#e-note').value }, 'Fiche enregistrée');
+  $('#e-save').onclick = () => act('update', { name: $('#e-name').value, phone: $('#e-phone').value, email: $('#e-email').value, note: $('#e-note').value }, 'Fiche enregistrée');
+  const rm = followUpMessage(x);
+  if ($('#r-wa')) $('#r-wa').onclick = () => window.open(waLink(x.phone, rm), '_blank');
+  if ($('#r-mail')) $('#r-mail').onclick = () => { location.href = `mailto:${encodeURIComponent(x.email)}?subject=${encodeURIComponent('Ravito : votre abonnement')}&body=${encodeURIComponent(rm)}`; };
+  $('#r-copy').onclick = () => { navigator.clipboard.writeText(rm); toast('Message copié'); };
   $('#e-msg').onclick = () => {
     const msg = inviteMessage(x);
     modal(`<h2 style="margin:0 0 8px">Message d'invitation</h2><div class="card mono" style="white-space:pre-wrap;font-size:13px">${esc(msg)}</div>
@@ -370,6 +400,70 @@ function renderDetail() {
     $('#m-copy').onclick = () => { navigator.clipboard.writeText(msg); toast('Message copié'); };
     $('#m-close').onclick = closeModal;
   };
+}
+
+/** Message de relance adapté à la situation du client. */
+function followUpMessage(x) {
+  const prix = money(state.config.priceFcfa), om = state.config.omNumber;
+  const pay = `Paiement : ${prix} par mois par Orange Money au ${om}, en indiquant votre code ${x.code}. Ensuite, dans Ravito, appuyez sur « J'ai payé, vérifier ».`;
+  if (x.status === 'invite') return `Bonjour ${x.name},\n\nVous n'avez pas encore activé Ravito. Installez l'application avec ce lien :\nhttps://github.com/essanchristian-maker/Ravito/releases/latest/download/Ravito.apk\npuis entrez votre code : ${x.code}\n\nBesoin d'aide ? Répondez à ce message.`;
+  if (x.status === 'expire') return `Bonjour ${x.name},\n\nVotre accès à Ravito est arrivé à échéance le ${fmtDate(x.expiry)}. Vos envois continuent d'être enregistrés : vous retrouverez tout dès le renouvellement.\n\n${pay}`;
+  if (x.status === 'essai') return `Bonjour ${x.name},\n\nVotre essai gratuit de Ravito se termine le ${fmtDate(x.expiry)}. Est-ce que l'application vous aide pour votre rapport du soir ?\n\nPour continuer : ${pay}`;
+  if (x.status === 'bloque') return `Bonjour ${x.name},\n\nVotre accès à Ravito est suspendu. Contactez-nous pour le rétablir.`;
+  return `Bonjour ${x.name},\n\nVotre abonnement Ravito se termine le ${fmtDate(x.expiry)}.\n\n${pay}`;
+}
+
+function renderProspects() {
+  const list = state.prospects;
+  const shareMsg = `Ravito prépare tout seul votre rapport du soir à partir de vos SMS Orange Money, MTN, Moov et Wave. 14 jours d'essai gratuit. Inscrivez-vous ici : ${SIGNUP_URL}`;
+  return `
+  <div class="card" style="margin-bottom:16px">
+    <div style="font-weight:600;margin-bottom:6px">Lien d'inscription à partager</div>
+    <div class="mono" style="margin-bottom:12px">${esc(SIGNUP_URL)}</div>
+    <div class="actions">
+      <button class="btn" id="s-copy">Copier le lien</button>
+      <a class="btn soft" style="text-decoration:none" target="_blank" href="https://wa.me/?text=${encodeURIComponent(shareMsg)}">Partager sur WhatsApp</a>
+      <a class="btn ghost" style="text-decoration:none" target="_blank" href="${esc(SIGNUP_URL)}">Voir la page</a>
+    </div>
+  </div>
+  <div class="card" style="padding:6px 8px">
+    ${list.length ? `<table>
+      <thead><tr><th>Personne</th><th>Contact</th><th class="hide-sm">Ville · activité</th><th class="hide-sm">Reçue</th><th>Suivi</th><th></th></tr></thead>
+      <tbody>${list.map((p) => `
+        <tr>
+          <td><b>${esc(p.firstName)} ${esc(p.lastName)}</b>${p.message ? `<div class="muted">${esc(p.message)}</div>` : ''}</td>
+          <td>${esc(p.whatsapp)}${p.email ? `<div class="muted">${esc(p.email)}</div>` : ''}</td>
+          <td class="hide-sm">${esc([p.city, p.activity].filter(Boolean).join(' · ') || '—')}${p.operators?.length ? `<div class="muted">${esc(p.operators.join(', '))}</div>` : ''}</td>
+          <td class="hide-sm">${fmtDateTime(p.createdAt)}</td>
+          <td><span class="pill ${p.status === 'converti' ? 's-paye' : p.status === 'contacte' ? 's-essai' : p.status === 'refuse' ? 's-bloque' : 's-expire'}">${PSTATUS[p.status] || p.status}</span>${p.code ? `<div class="mono muted">${esc(p.code)}</div>` : ''}</td>
+          <td><div class="actions" style="justify-content:flex-end">
+            ${p.status === 'converti'
+              ? `<button class="btn soft" data-open="${esc(p.code)}">Voir le client</button>`
+              : `<button class="btn" data-convert="${esc(p.id)}">Créer son accès</button>
+                 <a class="btn ghost" style="text-decoration:none" target="_blank" href="${esc(waLink(p.whatsapp, `Bonjour ${p.firstName}, merci pour votre inscription à Ravito !`))}">WhatsApp</a>
+                 ${p.status === 'nouveau' ? `<button class="btn ghost" data-pstatus="${esc(p.id)}" data-v="contacte">Contacté</button>` : ''}
+                 <button class="btn danger" data-pdel="${esc(p.id)}">✕</button>`}
+          </div></td>
+        </tr>`).join('')}</tbody></table>`
+      : '<div class="empty">Aucune demande pour l\'instant. Partagez le lien d\'inscription ci-dessus.</div>'}
+  </div>`;
+}
+
+function bindProspects() {
+  $('#s-copy').onclick = () => { navigator.clipboard.writeText(SIGNUP_URL); toast('Lien copié'); };
+  document.querySelectorAll('[data-convert]').forEach((b) => b.onclick = async () => {
+    b.disabled = true;
+    try { const j = await api('convert', { id: b.dataset.convert }); showInvite(j.client); load(); }
+    catch (e) { toast('Erreur : ' + e.message); b.disabled = false; }
+  });
+  document.querySelectorAll('[data-pstatus]').forEach((b) => b.onclick = async () => {
+    try { await api('prospect', { id: b.dataset.pstatus, status: b.dataset.v }); toast('Demande mise à jour'); load(); } catch (e) { toast('Erreur : ' + e.message); }
+  });
+  document.querySelectorAll('[data-pdel]').forEach((b) => b.onclick = async () => {
+    if (!confirm('Supprimer cette demande ?')) return;
+    try { await api('prospect_delete', { id: b.dataset.pdel }); toast('Demande supprimée'); load(); } catch (e) { toast('Erreur : ' + e.message); }
+  });
+  document.querySelectorAll('[data-open]').forEach((b) => b.onclick = () => openDetail(b.dataset.open));
 }
 
 if (sessionStorage.getItem('ravito_pw')) load(); else renderLogin();
