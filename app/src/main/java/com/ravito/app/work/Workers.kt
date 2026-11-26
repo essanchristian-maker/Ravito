@@ -26,6 +26,8 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
     override suspend fun doWork(): Result {
         val app = applicationContext as RavitoApp
         val r = app.repository.syncInbox()
+        // Contact avec le serveur au plus toutes les 6 heures (licence, version, compteurs).
+        if (app.license.checkinDue(6 * 60)) runCatching { app.checkinNow() }
         return if (r.error == null) Result.success() else Result.retry()
     }
 }

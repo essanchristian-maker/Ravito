@@ -170,7 +170,9 @@ fun SettingsScreen(onOpenMerchants: () -> Unit, onOpenTemplate: () -> Unit, onOp
             // ---------------------------------------------------------- Rapport
             SectionTitle("Rapport")
             GroupCard {
-            SettingRow("Tester un SMS", "Coller un SMS pour voir ce que Ravito en comprend", onClick = onOpenTestSms)
+            if (com.ravito.app.ui.components.rememberFeature("test_sms")) {
+                SettingRow("Tester un SMS", "Coller un SMS pour voir ce que Ravito en comprend", onClick = onOpenTestSms)
+            }
             SettingRow("Modèle de rapport", "Rubriques cabines, agents, UV reçues ; zones comme {date}, {total}", onClick = onOpenTemplate)
             SettingRow("Période du rapport", "De ${minutesLabel(s.period.startMinutes)} à ${minutesLabel(s.period.endMinutes)}") {
                 pickTime = "start"
@@ -220,6 +222,25 @@ fun SettingsScreen(onOpenMerchants: () -> Unit, onOpenTemplate: () -> Unit, onOp
 
             }
             // ---------------------------------------------------------- Données
+            SectionTitle("Abonnement")
+            GroupCard {
+                val lic by app.license.state.collectAsStateWithLifecycle()
+                val latest by app.license.latest.collectAsStateWithLifecycle()
+                val l = (lic as? com.ravito.app.license.LicenseState.Active)?.license
+                val fmt = java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.FRANCE)
+                SettingRow(
+                    "Code ${app.license.code ?: "—"}",
+                    l?.let {
+                        (if (it.isTrial) "Essai gratuit jusqu'au " else "Abonnement payé jusqu'au ") + fmt.format(java.util.Date(it.expiresAt)) +
+                            " · ${com.ravito.app.domain.Formats.amount(it.priceFcfa)} / mois par Orange Money au ${it.omNumber}"
+                    } ?: "—",
+                ) { scope.launch { if (app.checkinNow()) ctx.toast("Abonnement vérifié") else ctx.toast("Pas de connexion Internet") } }
+                SettingRow(
+                    "Version ${com.ravito.app.BuildConfig.VERSION_NAME}",
+                    if (app.updater.isNewer(latest)) "Nouvelle version ${latest!!.versionName} disponible : voir l'accueil" else "Vous avez la dernière version",
+                ) { scope.launch { app.checkinNow(); ctx.toast(if (app.updater.isNewer(app.license.latest.value)) "Mise à jour disponible sur l'accueil" else "Vous avez la dernière version") } }
+            }
+
             SectionTitle("Données")
             GroupCard {
             if (s.consentAt > 0) {
@@ -229,6 +250,7 @@ fun SettingsScreen(onOpenMerchants: () -> Unit, onOpenTemplate: () -> Unit, onOp
                         java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.FRANCE).format(java.util.Date(s.consentAt)) + ".",
                 ) {}
             }
+            if (com.ravito.app.ui.components.rememberFeature("export")) {
             SettingRow("Exporter (fichier Excel / CSV)", "Enregistrer tout l'historique dans un fichier") {
                 exportLauncher.launch("ravito-${LocalDate.now()}.csv")
             }
@@ -249,6 +271,7 @@ fun SettingsScreen(onOpenMerchants: () -> Unit, onOpenTemplate: () -> Unit, onOp
                         ctx.toast("Export impossible : ${e.message}")
                     }
                 }
+            }
             }
             SettingRow(
                 "Relire les SMS",

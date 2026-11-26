@@ -302,7 +302,10 @@ fun ReportScreen(onOpenReview: () -> Unit) {
                     }
                 }
                 Button(
-                    onClick = { shareToWhatsApp(ctx, s.text) },
+                    onClick = {
+                        com.ravito.app.telemetry.Telemetry.count(ctx, com.ravito.app.telemetry.Telemetry.SHARES)
+                        shareToWhatsApp(ctx, s.text)
+                    },
                     modifier = Modifier.fillMaxWidth().padding(top = 16.dp).height(56.dp),
                 ) {
                     Icon(Icons.Filled.Share, null)
@@ -310,12 +313,15 @@ fun ReportScreen(onOpenReview: () -> Unit) {
                     Text("Partager sur WhatsApp")
                 }
                 Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    FilledTonalButton(onClick = { editText = s.text; editing = true }, modifier = Modifier.weight(1f).height(50.dp)) {
+                    if (com.ravito.app.ui.components.rememberFeature("edit_report")) FilledTonalButton(onClick = { editText = s.text; editing = true }, modifier = Modifier.weight(1f).height(50.dp)) {
                         Icon(Icons.Filled.Edit, null)
                         Spacer(Modifier.width(6.dp))
                         Text("Modifier")
                     }
-                    FilledTonalButton(onClick = { copyToClipboard(ctx, s.text); ctx.toast("Rapport copié") }, modifier = Modifier.weight(1f).height(50.dp)) {
+                    FilledTonalButton(onClick = {
+                        com.ravito.app.telemetry.Telemetry.count(ctx, com.ravito.app.telemetry.Telemetry.COPIES)
+                        copyToClipboard(ctx, s.text); ctx.toast("Rapport copié")
+                    }, modifier = Modifier.weight(1f).height(50.dp)) {
                         Text("Copier")
                     }
                 }

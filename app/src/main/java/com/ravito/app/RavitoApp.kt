@@ -20,9 +20,19 @@ class RavitoApp : Application() {
     val pin by lazy { PinManager(this) }
     val database by lazy { RavitoDatabase.create(this) }
     val repository by lazy { RavitoRepository(this, database, settings) }
+    val license by lazy { com.ravito.app.license.LicenseManager(this) }
+    val updater by lazy { com.ravito.app.update.Updater(this) }
+
+    /** Contacte le serveur (licence, version, compteurs). false = pas de connexion. */
+    suspend fun checkinNow(): Boolean {
+        val ok = license.checkin(settings.current.operatorsOrdered.map { it.name })
+        license.refresh()
+        return ok
+    }
 
     override fun onCreate() {
         super.onCreate()
+        com.ravito.app.telemetry.Telemetry.installCrashHandler(this)
         Notifications.createChannels(this)
         if (settings.current.onboardingDone) Scheduler.scheduleAll(this)
     }

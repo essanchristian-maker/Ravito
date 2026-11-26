@@ -82,6 +82,10 @@ class MainActivity : FragmentActivity() {
 
     override fun onResume() {
         super.onResume()
+        com.ravito.app.telemetry.Telemetry.count(this, com.ravito.app.telemetry.Telemetry.OPENS)
+        app.license.refresh()
+        // Contact avec le serveur au plus toutes les 30 minutes (licence, version, compteurs).
+        if (app.license.checkinDue(30)) lifecycleScope.launch { app.checkinNow() }
         if (!locked) syncNow()
     }
 

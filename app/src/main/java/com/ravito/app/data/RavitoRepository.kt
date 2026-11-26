@@ -77,6 +77,8 @@ class RavitoRepository(
     suspend fun processSms(sender: String?, body: String, timestamp: Long, subscriptionId: Int?): Outcome {
         val s = settings.current
         val op = Operator.matchSender(sender, s.activeSenders()) ?: return Outcome.UNKNOWN_SENDER
+        // L'heure d'un SMS d'opérateur vient du réseau : elle sert d'horloge de confiance pour l'abonnement.
+        (context.applicationContext as? com.ravito.app.RavitoApp)?.license?.observeTrustedTime(timestamp)
         val slot = subscriptionId?.let { simSlotFor(it) }
         val day = SimpleDateFormat("yyyyMMdd", Locale.US).format(Date(timestamp))
         return process(op, body, timestamp, slot, TxSource.SMS, sender, salt = day)
@@ -114,6 +116,7 @@ class RavitoRepository(
                         timestamp = timestamp, simSlot = slot, source = source,
                     ),
                 )
+                if (id > 0) com.ravito.app.telemetry.Telemetry.unrecognized(context, op.name, body)
                 if (id > 0) Outcome.TO_REVIEW else Outcome.DUPLICATE
             }
             is SmsParser.Result.Transaction -> {
@@ -143,6 +146,12 @@ class RavitoRepository(
                         rawText = body,
                     ),
                 )
+                if (id > 0) {
+                    com.ravito.app.telemetry.Telemetry.count(
+                        context,
+                        if (p.kind == TxKind.RECEIVED) com.ravito.app.telemetry.Telemetry.RECEIPTS else com.ravito.app.telemetry.Telemetry.SENDS,
+                    )
+                }
                 if (id > 0) Outcome.ADDED else Outcome.DUPLICATE
             }
         }

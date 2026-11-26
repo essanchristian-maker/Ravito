@@ -185,11 +185,19 @@ fun HistoryScreen(
             item { TodayHero(today, settings.operatorsOrdered) }
 
             item {
+                val lic by app.license.state.collectAsStateWithLifecycle()
+                val latest by app.license.latest.collectAsStateWithLifecycle()
+                com.ravito.app.ui.license.LicenseBanners(lic, latest, app.updater)
+            }
+
+            item {
                 Row(
                     Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 18.dp),
                     horizontalArrangement = Arrangement.SpaceEvenly,
                 ) {
-                    CircleAction(Icons.Filled.Add, "Ajouter", onClick = onAddManual)
+                    if (com.ravito.app.ui.components.rememberFeature("manual_add")) {
+                        CircleAction(Icons.Filled.Add, "Ajouter", onClick = onAddManual)
+                    }
                     CircleAction(Icons.Filled.Refresh, "Synchro", busy = syncing) { vm.sync { ctx.toast(it) } }
                     CircleAction(Icons.Filled.Search, "Chercher") { showSearch = !showSearch }
                     CircleAction(Icons.Filled.Warning, "Vérifier", badge = pending, onClick = onOpenReview)

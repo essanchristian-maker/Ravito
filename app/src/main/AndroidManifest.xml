@@ -12,6 +12,10 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
+    <!-- Serveur Ravito : activation, abonnement, mises a jour, compteurs de fonctionnement -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Installer les mises a jour telechargees depuis l application -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <!-- Pour retrouver l'application WhatsApp (bouton Partager) sur Android 11+ -->
     <queries>

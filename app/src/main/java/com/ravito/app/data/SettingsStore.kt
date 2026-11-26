@@ -82,7 +82,7 @@ class SettingsStore(context: Context) {
             lockTimeoutSeconds = prefs.getInt("lock_timeout", d.lockTimeoutSeconds),
             lastInboxSync = prefs.getLong("last_inbox_sync", 0L),
             firstSyncDays = prefs.getInt("first_sync_days", d.firstSyncDays),
-            consentAt = prefs.getLong("consent_at", 0L),
+            consentAt = prefs.getLong("consent_v2_at", 0L),
             allowScreenCapture = prefs.getBoolean("allow_screen_capture", false),
         )
     }
@@ -106,7 +106,7 @@ class SettingsStore(context: Context) {
             putInt("lock_timeout", s.lockTimeoutSeconds)
             putLong("last_inbox_sync", s.lastInboxSync)
             putInt("first_sync_days", s.firstSyncDays)
-            putLong("consent_at", s.consentAt)
+            putLong("consent_v2_at", s.consentAt)
             putBoolean("allow_screen_capture", s.allowScreenCapture)
         }.apply()
     }

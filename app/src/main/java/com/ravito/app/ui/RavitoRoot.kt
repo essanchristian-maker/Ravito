@@ -72,10 +72,22 @@ fun RavitoRoot(
 ) {
     val app = rememberApp()
     val settings by app.settings.state.collectAsStateWithLifecycle()
+    val license by app.license.state.collectAsStateWithLifecycle()
     // Pendant le démarrage, le PIN vient d'être créé : pas de verrouillage avant la fin.
     var justOnboarded by remember { mutableStateOf(false) }
 
     when {
+        // Abonnement d'abord : sans licence valable, rien n'est affiché (les SMS restent enregistrés en arrière-plan).
+        license is com.ravito.app.license.LicenseState.NeedsActivation ->
+            WithStatusBand { com.ravito.app.ui.license.ActivationScreen(unauthorized = false) }
+        license is com.ravito.app.license.LicenseState.Unauthorized ->
+            WithStatusBand { com.ravito.app.ui.license.ActivationScreen(unauthorized = true) }
+        license is com.ravito.app.license.LicenseState.Blocked ->
+            WithStatusBand { com.ravito.app.ui.license.BlockedScreen((license as com.ravito.app.license.LicenseState.Blocked).license) }
+        license is com.ravito.app.license.LicenseState.Expired ->
+            WithStatusBand { com.ravito.app.ui.license.ExpiredScreen((license as com.ravito.app.license.LicenseState.Expired).license) }
+        license is com.ravito.app.license.LicenseState.NeedsConnection ->
+            WithStatusBand { com.ravito.app.ui.license.NeedsConnectionScreen((license as com.ravito.app.license.LicenseState.NeedsConnection).license) }
         !settings.onboardingDone -> WithStatusBand { OnboardingScreen(onDone = { justOnboarded = true; onUnlocked() }) }
         locked && !justOnboarded -> WithStatusBand { LockScreen(biometricAvailable, onBiometric, onUnlocked) }
         // Personnes installées avant l'ajout du consentement : on le demande une fois.

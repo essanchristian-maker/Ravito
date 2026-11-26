@@ -8,6 +8,7 @@
 //   POST ?action=block    {code, blocked}
 //   POST ?action=transfer {code}                  libérer le code pour un nouveau téléphone
 //   POST ?action=update   {code, name, phone, note, flags}
+//   POST ?action=delete   {code}                  supprimer le client (le téléphone sera bloqué)
 //   POST ?action=config   {priceFcfa, omNumber, trialDays, checkDays, graceDays, notice}
 import crypto from 'node:crypto';
 import { listPathnames, readJson, remove, writeJson } from '../lib/store.js';
@@ -151,6 +152,11 @@ export default async function handler(req, res) {
       await remove(`bindings/${client.code}.json`);
       client.deviceId = null;
       client.device = null;
+    } else if (action === 'delete') {
+      await remove(`bindings/${client.code}.json`);
+      await remove(`status/${client.code}.json`);
+      await remove(`clients/${client.code}.json`);
+      return send(res, 200, { deleted: client.code });
     } else if (action === 'update') {
       if (typeof b.name === 'string' && b.name.trim()) client.name = b.name.trim().slice(0, 80);
       if (typeof b.phone === 'string') client.phone = b.phone.trim().slice(0, 30);

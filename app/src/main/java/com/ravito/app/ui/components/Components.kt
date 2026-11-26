@@ -32,6 +32,7 @@ import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -274,4 +275,12 @@ fun RereadPeriodButtons(modifier: Modifier = Modifier, onPick: (Int) -> Unit) {
             ) { Text(label, maxLines = 1, softWrap = false) }
         }
     }
+}
+
+/** Fonction activée par le portail ? (vrai par défaut, ou tant que la licence n'est pas chargée) */
+@Composable
+fun rememberFeature(key: String): Boolean {
+    val app = rememberApp()
+    val st = app.license.state.collectAsState().value
+    return (st as? com.ravito.app.license.LicenseState.Active)?.license?.feature(key) ?: true
 }

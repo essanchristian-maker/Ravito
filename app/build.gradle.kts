@@ -28,6 +28,8 @@ android {
         versionCode = (System.getenv("RAVITO_VERSION_CODE") ?: "1").toInt()
         versionName = "1.0.${System.getenv("RAVITO_VERSION_CODE") ?: "0"}"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // Serveur Ravito (activation, licences, mises à jour, portail).
+        buildConfigField("String", "SERVER_URL", "\"${System.getenv("RAVITO_SERVER_URL") ?: "https://ravito-portail.vercel.app"}\"")
         // Téléphones uniquement (ARM) : APK plus léger à télécharger.
         ndk { abiFilters += listOf("armeabi-v7a", "arm64-v8a") }
     }
@@ -109,4 +111,5 @@ dependencies {
 
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.3")
     testImplementation(libs.junit)
+    testImplementation("org.json:json:20240303")
 }

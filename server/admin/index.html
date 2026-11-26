@@ -338,6 +338,7 @@ function renderDetail() {
     <div class="card actions">
       <button class="btn danger" data-act="block">${x.blocked ? 'Débloquer' : 'Bloquer l\'accès'}</button>
       <button class="btn ghost" data-act="transfer" ${x.hasDevice ? '' : 'disabled'}>Transférer vers un nouveau téléphone</button>
+      <button class="btn danger" data-act="delete">Supprimer le client</button>
     </div>`;
 
   $('#d-close').onclick = closeDetail;
@@ -351,6 +352,7 @@ function renderDetail() {
     if (a === 'pay3') return confirm(`Enregistrer 3 mois (${money(state.config.priceFcfa * 3)}) pour ${x.name} ?`) && act('pay', { months: 3 }, 'Abonnement prolongé de 3 mois');
     if (a === 'trial7') return act('trial', { days: 7 }, 'Essai prolongé de 7 jours');
     if (a === 'block') return confirm(x.blocked ? 'Débloquer ce client ?' : 'Bloquer l\'accès de ce client ?') && act('block', { blocked: !x.blocked }, x.blocked ? 'Client débloqué' : 'Client bloqué');
+    if (a === 'delete') return confirm(`Supprimer définitivement ${x.name} ? Son application sera bloquée.`) && api('delete', { code: x.code }).then(() => { toast('Client supprimé'); closeDetail(); load(); }).catch((e) => toast('Erreur : ' + e.message));
     if (a === 'transfer') return confirm('Libérer ce code ? L\'ancien téléphone sera bloqué à sa prochaine connexion, et le code pourra être entré sur un nouveau téléphone.') && act('transfer', {}, 'Code libéré');
   });
   document.querySelectorAll('[data-flag]').forEach((cb) => cb.onchange = () => {
