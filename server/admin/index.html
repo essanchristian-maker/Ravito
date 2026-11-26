@@ -121,11 +121,13 @@ function renderLogin(err = '') {
     <div class="wrap"><div class="login card">
       <h1 style="margin:0 0 6px;font-size:28px;letter-spacing:-.6px">Ravito</h1>
       <p class="muted" style="margin:0 0 18px">Portail de pilotage</p>
-      <label class="field"><span>Mot de passe</span><input class="input" id="pw" type="password" autofocus></label>
+      <label class="field"><span>Mot de passe</span><input class="input" id="pw" type="password" autocomplete="current-password" autofocus></label>
+      <label style="display:flex;align-items:center;gap:8px;margin:-4px 0 14px;color:var(--ink-soft);font-size:14px;cursor:pointer"><input type="checkbox" id="pw-show"> Afficher le mot de passe</label>
       ${err ? `<p style="color:var(--red);margin:0 0 12px">${esc(err)}</p>` : ''}
       <button class="btn" id="go" style="width:100%">Se connecter</button>
     </div></div>`;
-  const go = async () => { sessionStorage.setItem('ravito_pw', $('#pw').value); await load(); };
+  $('#pw-show').onchange = (e) => { $('#pw').type = e.target.checked ? 'text' : 'password'; $('#pw').focus(); };
+  const go = async () => { sessionStorage.setItem('ravito_pw', $('#pw').value.trim()); await load(); };
   $('#go').onclick = go; $('#pw').onkeydown = (e) => e.key === 'Enter' && go();
 }
 
