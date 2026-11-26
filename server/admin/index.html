@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#0B8A5A">
 <link rel="icon" href="/admin/icon-192.png">
 <link rel="apple-touch-icon" href="/admin/icon-192.png">
-<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -73,7 +73,13 @@
   .modal-bg { position: fixed; inset: 0; background: rgba(16,20,24,.35); display: none; align-items: center; justify-content: center; padding: 16px; }
   .modal-bg.on { display: flex; }
   .modal { background: var(--canvas); border-radius: 24px; padding: 22px; width: min(460px, 100%); }
-  .login { max-width: 380px; margin: 12vh auto; }
+  .login { max-width: 400px; margin: -48px auto 0; position: relative; box-shadow: 0 18px 50px -24px rgba(16,20,24,.3); padding: 26px 24px; }
+  .login-hero { background: radial-gradient(800px 300px at 90% -20%, rgba(255,255,255,.18), transparent 60%), linear-gradient(160deg, #0B8A5A, #066A44); color: #fff; text-align: center; padding: 56px 20px 84px; }
+  .login-hero h1 { margin: 14px 0 6px; font-size: 30px; letter-spacing: -0.8px; }
+  .login-hero p { margin: 0; opacity: .88; }
+  .login-logo { width: 64px; height: 64px; margin: 0 auto; border-radius: 18px; background: #fff; color: var(--green); font-size: 34px; font-weight: 800; display: grid; place-items: center; box-shadow: 0 10px 30px -10px rgba(0,0,0,.35); }
+  header h1 { display: flex; align-items: center; gap: 10px; }
+  header h1::before { content: "R"; width: 36px; height: 36px; border-radius: 11px; background: var(--green); color: #fff; font-size: 20px; display: grid; place-items: center; letter-spacing: 0; }
   .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 11px 18px; border-radius: 999px; display: none; }
   .empty { text-align: center; padding: 40px; color: var(--ink-soft); }
   .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
@@ -153,7 +159,7 @@ function askPassword(title, detail = '') {
     const done = (v) => { closeModal(); resolve(v); };
     $('#cf-pw').focus();
     $('#cf-ok').onclick = () => done($('#cf-pw').value.trim() || null);
-    $('#cf-pw').onkeydown = (e) => e.key === 'Enter' && done($('#cf-pw').value.trim() || null);
+    $('#cf-pw').onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); done($('#cf-pw').value.trim() || null); } };
     $('#cf-no').onclick = () => done(null);
   });
 }
@@ -167,9 +173,14 @@ async function sensitive(action, data, title, detail) {
 
 function renderLogin(err = '') {
   $('#app').innerHTML = `
-    <div class="wrap"><div class="login card">
-      <h1 style="margin:0 0 6px;font-size:28px;letter-spacing:-.6px">Ravito</h1>
-      <p class="muted" style="margin:0 0 18px">Portail de pilotage</p>
+    <div class="login-hero">
+      <div class="login-logo">R</div>
+      <h1>Ravito Gestion</h1>
+      <p>Vos demandes, vos clients et vos paiements, au même endroit.</p>
+    </div>
+    <div class="wrap" style="padding-top:0"><div class="login card">
+      <h2 style="margin:0 0 4px;font-size:22px;letter-spacing:-.4px">Connexion</h2>
+      <p class="muted" style="margin:0 0 18px">Espace réservé à l'administrateur.</p>
       <label class="field"><span>Mot de passe</span><input class="input" id="pw" type="password" autocomplete="current-password" autofocus></label>
       <label style="display:flex;align-items:center;gap:8px;margin:-4px 0 14px;color:var(--ink-soft);font-size:14px;cursor:pointer"><input type="checkbox" id="pw-show"> Afficher le mot de passe</label>
       ${err ? `<p style="color:var(--red);margin:0 0 12px">${esc(err)}</p>` : ''}
@@ -183,7 +194,7 @@ function renderLogin(err = '') {
     try { const j = await api('login', { password: $('#pw').value.trim() }); session.set(j.session); await load(); }
     catch (e) { if (e.message !== '401') renderLogin('Mot de passe incorrect.'); }
   };
-  $('#go').onclick = go; $('#pw').onkeydown = (e) => e.key === 'Enter' && go();
+  $('#go').onclick = go; $('#pw').onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); go(); } };
   $('#forgot').onclick = openRecover;
 }
 
@@ -236,7 +247,7 @@ function render() {
   $('#app').innerHTML = `
   <div class="wrap">
     <header>
-      <h1>Ravito</h1>
+      <h1>Ravito Gestion</h1>
       <div class="tabs">
         <button class="tab ${state.tab === 'clients' ? 'on' : ''}" data-tab="clients">Clients</button>
         <button class="tab ${state.tab === 'prospects' ? 'on' : ''}" data-tab="prospects">Demandes${state.prospects.filter((p) => p.status === 'nouveau').length ? ` <span class="pill s-bloque" style="padding:1px 7px">${state.prospects.filter((p) => p.status === 'nouveau').length}</span>` : ''}</button>
